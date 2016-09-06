@@ -1,0 +1,2 @@
+LGPL
+https://www.gnu.org/copyleft/lesser.txt
