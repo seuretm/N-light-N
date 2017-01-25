@@ -26,7 +26,9 @@
 
 package diuf.diva.dia.ms.util;
 
+import diuf.diva.dia.ms.script.XMLScript;
 import diuf.diva.dia.ms.util.Image.Colorspace;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -74,6 +76,7 @@ public class Dataset implements Collection<DataBlock> {
      * @param path containing the images
      * @param colorspace colorspace to use
      * @param sizeLimit maximum number of images to load
+     * @param buffered loads the DataBlocks as BiDataBlock
      * @throws Exception if an image fails to load
      */
     public Dataset(String path, Image.Colorspace colorspace, int sizeLimit, boolean buffered) throws Exception {
@@ -92,7 +95,18 @@ public class Dataset implements Collection<DataBlock> {
             if (fName.equals(".DS_Store")) {
                 continue;
             }
-            if (colorspace==Image.Colorspace.RGB && buffered) {
+            
+            /* PLEASE - do not add && Buffered here!!!!
+             * Although it being "technically correct" it would make several existing script to crash.
+             * Furthermore, this would make the possibility to create a buffered data set in
+             * LoadDataset.loadBufferedDataset() redundant. However, the two of them have different
+             * performance on memory level which calls for deeper investigation.
+             *
+             * CONCLUSION: this cannot be fixed with a && Buffered. Needs more time & attention and
+             * a bigger refactor.
+             */
+            // TODO investigate the above comment
+            if (colorspace == Image.Colorspace.RGB) {
                 BiDataBlock bid = new BiDataBlock(path + "/" + fName);
                 data.add(bid);
             } else {
@@ -105,12 +119,17 @@ public class Dataset implements Collection<DataBlock> {
                 break;
             }
         }
+        // Calling the garbage collector at each iteration is painfully slow!!
+        // DO NOT do it!
+        System.gc();
     }
     
     /**
      * Adds a datablock to the dataset.
      * @param db datablock
+     * @return true
      */
+    @Override
     public boolean add(DataBlock db) {
         if (colorspace!=Colorspace.RGB && db instanceof BiDataBlock) {
             throw new Error("BiDataBlocks can only be added to datasets storing RGB data");
@@ -130,7 +149,7 @@ public class Dataset implements Collection<DataBlock> {
      */
     public void randomPermutation() {
         for (int i=0; i<data.size(); i++) {
-            int j = (int)(Math.random()*data.size());
+            int j = (int) (XMLScript.getRandom().nextDouble() * data.size());
             DataBlock k = data.get(i);
             data.set(i, data.get(j));
             data.set(j, k);
@@ -160,6 +179,7 @@ public class Dataset implements Collection<DataBlock> {
      * Return the size of the data stored in the dataset
      * @return the number of datablocks
      */
+    @Override
     public int size() {
         return data.size();
     }

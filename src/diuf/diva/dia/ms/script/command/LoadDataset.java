@@ -47,6 +47,10 @@ import java.util.List;
  */
 public class LoadDataset extends AbstractCommand {
     
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public LoadDataset(XMLScript script) {
         super(script);
     }
@@ -128,7 +132,7 @@ public class LoadDataset extends AbstractCommand {
             if (lst[i].equals(".DS_Store")) {
                 continue;
             }
-            script.println("Loading " + folder + File.separator + lst[i]);
+            //script.println("Loading " + folder + File.separator + lst[i]);
             BufferedImage bi = ImageIO.read(
                     new File(
                             folder+File.separator+lst[i]

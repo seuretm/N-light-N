@@ -27,16 +27,24 @@
 package diuf.diva.dia.ms.ml.ae;
 
 import diuf.diva.dia.ms.ml.rbm.BasicGBRBM;
-
 import java.io.Serializable;
 
 /**
+ * This is experimental and should be used only as base for future experiments
+ * on RBMs.
  * @author Mathias Seuret
  */
 
 public class GBRBMUnit extends AutoEncoder implements Serializable {
     BasicGBRBM rbm;
     
+    /**
+     * Constructs a real-value to binary-value RBM
+     * @param inW input patch width
+     * @param inH input patch height
+     * @param inD input patch depth
+     * @param oD number of hidden units (i.e., features)
+     */
     public GBRBMUnit(int inW, int inH, int inD, int oD) {
         super(inW, inH, inD, oD);
         rbm = new BasicGBRBM(inW*inH*inD, oD);

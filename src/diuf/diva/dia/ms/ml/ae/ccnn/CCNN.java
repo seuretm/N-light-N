@@ -34,7 +34,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
- * Combined Convolution Neural Network
+ * Combined Convolution Neural Network. This class is a prototype and has not
+ * been deeply tested so far. The idea is to combine two or several FFCNN having
+ * potentially different input sources by adding one or several classification
+ * layers on top. Fine-tuning is done through all FFCNNs.
  * @author Mathias Seuret
  */
 public class CCNN implements Serializable {
@@ -197,9 +200,8 @@ public class CCNN implements Serializable {
      * set the inputs of the different FFCNN, call the compute()
      * method, set the expected values, and finally call
      * this method.
-     * @return the mean error of the classification layer
      */
-    public float learn() {
+    public void learn() {
         float err = 0;
         for (float f : topLayer.getError()) {
             err += Math.abs(f);
@@ -211,24 +213,20 @@ public class CCNN implements Serializable {
             layer[i].learn();
         }
         int pos = 0;
-        float errSum = 0;
         for (FFCNN f : leaves) {
             for (int i=0; i<f.getOutputDepth(); i++) {
                 f.addError(i, error[pos++]);
             }
-            //TODO check this out! Learn now returns void!
-            //errSum += f.learn();
         }
         for (CCNN c : branches) {
             for (int i=0; i<c.getOutputSize(); i++) {
                 c.addError(i, error[pos++]);
             }
-            errSum += c.learn();
+            c.learn();
         }
         for (int i=0; i<error.length; i++) {
             error[i] = 0.0f;
         }
-        return err;
     }
     
     /**

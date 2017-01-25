@@ -27,8 +27,8 @@
 package diuf.diva.dia.ms.ml.ae.aec;
 
 import diuf.diva.dia.ms.ml.Classifier;
-import diuf.diva.dia.ms.ml.mlnn.MLNN;
 import diuf.diva.dia.ms.ml.ae.scae.SCAE;
+import diuf.diva.dia.ms.ml.mlnn.MLNN;
 import diuf.diva.dia.ms.util.DataBlock;
 
 import java.io.*;
@@ -44,12 +44,12 @@ public class AEClassifier implements Classifier, Serializable {
      * Reference to the autoencoder.
      */
     protected SCAE scae;
-    
+
     /**
      * Number of classes.
      */
     protected int nbClasses;
-    
+
     /**
      * The neural network on top of the classifier.
      */
@@ -69,7 +69,8 @@ public class AEClassifier implements Classifier, Serializable {
         this.scae = ae;
         this.nbClasses = nbClasses;
 
-        mlnn = new MLNN(ae.getFeatureLength(), nbClasses, nbNeurons);
+        mlnn = new MLNN(ae.getOutputDepth(), nbClasses, nbNeurons);
+
         mlnn.setInput(scae.getCentralMultilayerFeatures());
     }
 
@@ -83,6 +84,7 @@ public class AEClassifier implements Classifier, Serializable {
      * @param x position
      * @param y position
      */
+    @Override
     public void setInput(DataBlock db, int x, int y) {
         scae.setInput(db, x - scae.getInputPatchWidth() / 2, y - scae.getInputPatchHeight() / 2);
     }
@@ -93,8 +95,13 @@ public class AEClassifier implements Classifier, Serializable {
      * @param cx center x
      * @param cy center y
      */
+    @Override
     public void centerInput(DataBlock db, int cx, int cy) {
-        scae.setInput(db, cx - scae.getInputPatchWidth() / 2, cy - scae.getInputPatchHeight() / 2);
+        scae.setInput(
+                db,
+                cx - scae.getInputPatchWidth() / 2,
+                cy - scae.getInputPatchHeight() / 2
+        );
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,6 +111,7 @@ public class AEClassifier implements Classifier, Serializable {
     /**
      * Computes the features and then the classes.
      */
+    @Override
     public void compute() {
         scae.forward();
         mlnn.compute();
@@ -124,11 +132,13 @@ public class AEClassifier implements Classifier, Serializable {
      * @param  multiClass defines whether or not the result will be multiclass
      * @return the index of the output with the highest value
      */
+    @Override
     public int getOutputClass(boolean multiClass) {
+        //TODO: replace threshold by parameter
         int res = 0;
         if (multiClass) {
             for (int i = 0; i < mlnn.getOutputSize(); i++) {
-                if (mlnn.getOutput()[i] > 0.5f) {
+                if (mlnn.getOutput()[i] > 0.35f) {
                     res |= (0x01 << i);
                 }
             }
@@ -148,6 +158,7 @@ public class AEClassifier implements Classifier, Serializable {
      *
      * @return the size of the output
      */
+    @Override
     public int getOutputSize() {
         return mlnn.getOutputSize();
     }
@@ -160,6 +171,7 @@ public class AEClassifier implements Classifier, Serializable {
      * @param expectedClass output number which should correspond to the class
      * @param expectedValue expected value for the expected class
      */
+    @Override
     public void setExpected(int expectedClass, float expectedValue) {
         mlnn.setExpected(expectedClass, expectedValue);
     }
@@ -168,8 +180,8 @@ public class AEClassifier implements Classifier, Serializable {
      * Computed the training error and applies the gradient descent for the NeuralLayers.
      * @return the training error
      */
-    public float learn() {
-        return mlnn.learn(mlnn.getLayersCount());
+    public void learn() {
+        mlnn.learn(mlnn.getLayersCount());
     }
 
     /**
@@ -178,14 +190,15 @@ public class AEClassifier implements Classifier, Serializable {
      *
      * @return the training error
      */
-    public float learn(int nbLayers) {
-        return mlnn.learn(nbLayers);
+    public void learn(int nbLayers) {
+        mlnn.learn(nbLayers);
     }
 
     /**
      * Backpropagate all layers
      * @return average of the absolute errors of each output of the top layer
      */
+    @Override
     public float backPropagate() {
         return mlnn.backPropagate(mlnn.getLayersCount());
     }
@@ -196,6 +209,7 @@ public class AEClassifier implements Classifier, Serializable {
      * @param nbLayers how many layers from the top ?
      * @return average of the absolute errors of each output of the top layer
      */
+    @Override
     public float backPropagate(int nbLayers) {
         return mlnn.backPropagate(nbLayers);
     }
@@ -207,6 +221,7 @@ public class AEClassifier implements Classifier, Serializable {
     /**
      * @return the input width of the autoencoder
      */
+    @Override
     public int getInputWidth() {
         return scae.getInputPatchWidth();
     }
@@ -214,6 +229,7 @@ public class AEClassifier implements Classifier, Serializable {
     /**
      * @return the input height of the autoencoder
      */
+    @Override
     public int getInputHeight() {
         return scae.getInputPatchHeight();
     }
@@ -259,6 +275,7 @@ public class AEClassifier implements Classifier, Serializable {
      * Useful to select how many layer we want to train from the top
      * @return the number of layers
      */
+    @Override
     public int getNumLayers() {
         return mlnn.getLayersCount();
     }
@@ -269,16 +286,8 @@ public class AEClassifier implements Classifier, Serializable {
      * @param fName file name
      * @throws IOException if the file cannot be written to
      */
+    @Override
     public void save(final String fName) throws IOException {
-        // Check whether the path is existing, if not create it
-        File file = new File(fName);
-        if (!file.isDirectory()) {
-            file = file.getParentFile();
-        }
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-
         DataBlock pIn = scae.getBase().getInput();
         scae.setInput(new DataBlock(scae.getInputPatchWidth(), scae.getInputPatchHeight(), scae.getInputPatchDepth()));
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fName))) {

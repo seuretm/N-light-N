@@ -35,6 +35,10 @@ import org.jdom2.Element;
  */
 public class Print extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public Print(XMLScript script) {
         super(script);
     }

@@ -37,6 +37,10 @@ import org.jdom2.Element;
  */
 public class Save extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public Save(XMLScript script) {
         super(script);
     }

@@ -35,6 +35,11 @@ import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 public class FeatureDisplay extends DataBlockDisplay {
     SCAE scae;
     
+    /**
+     * Constructor of the class, takes as parameter the SCAE which features
+     * will have to be displayed.
+     * @param scae considered SCAE
+     */
     public FeatureDisplay(SCAE scae) {
         super(scae.extractFeatures(), "Features");
         this.scae = scae;

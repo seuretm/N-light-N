@@ -54,22 +54,23 @@ public interface Classifier {
      * @param x horizontal location of the classifier's top-left corner
      * @param y vertical location of the classifier's top-left corner
      */
-    void setInput(DataBlock db, int x, int y);          // x and y are the coordinate of the top left corner of the patch
+    void setInput(DataBlock db, int x, int y);
 
     /**
-     * Centers the 
-     * @param db
-     * @param cx
-     * @param cy 
+     * Centers the input at the given position in a DataBlock.
+     * @param db DataBlock
+     * @param cx center x
+     * @param cy center y
      */
-    void centerInput(DataBlock db, int cx, int cy);     // cx and cy are exactly the pixel coordinate
+    void centerInput(DataBlock db, int cx, int cy);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Computing
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * This method will execute the classifier and make him produce an output
+     * Runs the classification task and makes sure that the next getOutputClass
+     * call will return correct values.
      */
     void compute();
 
@@ -78,10 +79,17 @@ public interface Classifier {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * These methods provide tool to access the result of the computation.
+     * This method returns either an int class number (corresponding to a
+     * single-class classification result), or an int which bits indicate
+     * whether the class has been selected or not (multi-class classification)
+     * @param multiClass true in case of multi-class task
+     * @return the classification result
      */
     int getOutputClass(boolean multiClass);         // Computes the classification with single or multiclass
 
+    /**
+     * @return the number of output values, i.e., of classes
+     */
     int getOutputSize();
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,16 +97,39 @@ public interface Classifier {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * These methods provide the possibility to set the expected values (supervised training) and learn the classifier
+     * This method is used during training, after compute(), and before
+     * backpropagate(). Indicate for each output what is the expected
+     * classification result.
+     * @param outputNumber typically a class number
+     * @param expectedValue the values which should ideally have been outputted
      */
     void setExpected(int expectedClass, float expectedValue);
 
-    float learn();
+    /**
+     * Applies the gradients stocked after one or several backPropagate() calls.
+     */
+    void learn();
 
-    float learn(int n);
+    /**
+     * Applies the gradients computed with one or several backPropagate() calls,
+     * but only for some of the top layers of the classifier.
+     * @param n number of layers
+     */
+    void learn(int n);
 
+    /**
+     * Backpropagate the error of the top layer to the previous layers, compute
+     * and accumulate error gradients.
+     * @return the average absolute error of the top layer
+     */
     float backPropagate();
 
+    /**
+     * Backpropagate the error of the top layer to the n-1 previous layers,
+     * compute and accumulate error gradients.
+     * @param n number of layers which should backpropagate
+     * @return the average absolute error of the top layer
+     */
     float backPropagate(int n);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,22 +152,33 @@ public interface Classifier {
     String type();
 
     /**
-     * Useful to select how many layer we want to train from the top
+     * @return the number of layers in the classifier
      */
     int getNumLayers();
 
     /**
-     * These are general purpose utility methods. This section only covers the basics stuff, each classifier
-     * shall have an own set of utility methods which are specific to his nature.
+     * The input width corresponds to the width of the patch covered by the
+     * classifier in the data.
+     * @return the width of the input
      */
     int getInputWidth();
 
+    /**
+     * The input height corresponds to the height of the patch covered by the
+     * classifier in the data.
+     * @return the height of the input
+     */
     int getInputHeight();
 
+    /**
+     * Saves the classifier to a file.
+     * @param fName file name
+     * @throws IOException if the file cannot be written to
+     */
     void save(final String fName) throws IOException;
 
     /**
-     * Loads a Classifier.
+     * Loads a Classifier from a file.
      *
      * @param fName file name
      * @return the new instance

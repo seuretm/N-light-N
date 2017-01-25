@@ -50,6 +50,7 @@ public class MLNN implements Serializable {
      * Bottom layer (input)
      */
     private NeuralLayer base;
+
     /**
      * Input array
      */
@@ -71,17 +72,21 @@ public class MLNN implements Serializable {
     public MLNN(int nbInputs, int nbOutputs, int... nbNeurons) {
         if (nbNeurons==null || nbNeurons.length<1) {
             throw new Error(
-                    "MLNN: requires at least one layer, you gave " + nbNeurons.length + " (" + Arrays.toString(nbNeurons) + ")"
+                    "MLNN: requires at least one layer, you gave "
+                            + nbNeurons.length
+                            + " ("
+                            + Arrays.toString(nbNeurons)
+                            + ")"
             );
         }
         
         this.nbOutputs = nbOutputs;
 
+        // Add the layers
         for (int i = 0; i < nbNeurons.length; i++) {
-            int inSize = (i == 0) ? nbInputs : layers.get(i - 1).getOutputSize();
+            // Set the input array, either by creating a new one or with output of prev layer.
             float[] in = (i == 0) ? new float[nbInputs] : layers.get(i - 1).getOutputArray();
-
-            NeuralLayer layer = new NeuralLayer(in, inSize, nbNeurons[i]);
+            NeuralLayer layer = new NeuralLayer(in, in.length, nbNeurons[i]);
             layers.add(layer);
         }
         base = layers.get(0);
@@ -190,6 +195,10 @@ public class MLNN implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Output related
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * Sets the array to use as input
+     * @param arr new input array
+     */
     public void setInput(float[] arr) {
         base.setInputArray(arr);
     }

@@ -66,6 +66,7 @@ public class PCAAutoEncoder extends AutoEncoder {
      * @param inputHeight input height
      * @param inputDepth  input depth
      * @param outputDepth output depth
+     * @param layerClassName indicates which kind of layer will be used in this AE
      */
     public PCAAutoEncoder(int inputWidth, int inputHeight, int inputDepth, int outputDepth, String layerClassName) {
         this(inputWidth, inputHeight, inputDepth, outputDepth, null, null, null, null, layerClassName);
@@ -109,20 +110,38 @@ public class PCAAutoEncoder extends AutoEncoder {
             Class c = Class.forName("diuf.diva.dia.ms.ml.layer." + layerClassName);
 
             // Setting the encoder
-            setEncoder((Layer) c.getDeclaredConstructor(float[].class, int.class, int.class, float[][].class, float[].class).newInstance(
+            setEncoder(
+                    (Layer) c.getDeclaredConstructor(
+                            float[].class,
+                            int.class,
+                            int.class,
+                            float[][].class,
+                            float[].class
+                    ).newInstance(
                     null,
                     inputWidth * inputHeight * inputDepth,
                     outputDepth,
                     encoderWeight,
-                    encoderBias));
+                        encoderBias
+                    )
+            );
 
             // Setting the decoder
-            setDecoder((Layer) c.getDeclaredConstructor(float[].class, int.class, int.class, float[][].class, float[].class).newInstance(
+            setDecoder(
+                    (Layer) c.getDeclaredConstructor(
+                            float[].class,
+                            int.class,
+                            int.class,
+                            float[][].class,
+                            float[].class
+                    ).newInstance(
                     null,
                     outputDepth,
                     inputWidth * inputHeight * inputDepth,
                     decoderWeight,
-                    decoderBias));
+                        decoderBias
+                    )
+            );
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -134,7 +153,7 @@ public class PCAAutoEncoder extends AutoEncoder {
     @Override
     public void encode() {
         if (!trainingDone) {
-            throw new IllegalStateException("cannot encode with PCA before training end");
+            input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
         } else {
             super.encode();
         }
@@ -153,7 +172,10 @@ public class PCAAutoEncoder extends AutoEncoder {
     public float train() {
         if (!trainingDone) {
             // Store the input into the training data set
-            double[] x = IntStream.range(0, inputArray.clone().length).mapToDouble(i -> inputArray.clone()[i]).toArray();
+            double[] x = IntStream.range(
+                    0,
+                    inputArray.clone().length
+            ).mapToDouble(i -> inputArray.clone()[i]).toArray();
             trainingData.add(x);
             return 0;
         } else {
@@ -191,7 +213,7 @@ public class PCAAutoEncoder extends AutoEncoder {
             PCA pca = new PCA(mat, outputDepth);
 
             // Get the transformation matrix W
-            Matrix W = pca.getW();
+            final Matrix W = pca.getW();
 
             for (int r = 0; r < W.getRowDimension(); r++) {
                 for (int c = 0; c < W.getColumnDimension(); c++) {
@@ -206,7 +228,12 @@ public class PCAAutoEncoder extends AutoEncoder {
              * tough user did not specified it */
             assert (encoder.getOutputSize() == decoder.getInputSize());
             if (W.getColumnDimension() < encoder.getOutputSize()) {
-                System.out.print(" : !WARNING! Automatic dimension reduction from " + encoder.getOutputSize() + " to " + W.getColumnDimension());
+                System.out.print(
+                        " : !WARNING! Automatic dimension reduction from "
+                                + encoder.getOutputSize()
+                                + " to "
+                                + W.getColumnDimension()
+                );
             }
             while (W.getColumnDimension() < encoder.getOutputSize()) {
                 encoder.deleteOutput(encoder.getOutputSize());
@@ -214,6 +241,20 @@ public class PCAAutoEncoder extends AutoEncoder {
             }
 
             System.out.println("\n" + ft.format(new Date()) + ": PCA finished");
+
+
+
+
+            /* Trying to set the bias to be equal to the means produces much worse
+             * results in a simple SCAE 1 layer using visual recode evaluation.
+             * Therefore it is not done, but the code is here in case would it be
+             * necessary to repeat the test in the future (as it already happened).
+            // Get means of the data
+            Matrix means = doubleToMatrix( pca.getMeans());
+
+            encoder.setBias(copy(W.times(means).transpose().getArray())[0]);
+            decoder.setBias(copy(W.times(means).times(-1).transpose().getArray())[0]);
+            */
 
             // Set the new weights to the encoder and decoder
             encoder.setWeights(copy(W.getArray()));
@@ -230,6 +271,16 @@ public class PCAAutoEncoder extends AutoEncoder {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Converts double[] to Matrix
+     */
+    private Matrix doubleToMatrix(double[] x) {
+        double[][] tmp = new double[1][x.length];
+        tmp[0] = x;
+        return new Matrix(tmp).transpose();
+    }
+
     /**
      * Sets the training done to a specified parameter
      * @param std the value to be used

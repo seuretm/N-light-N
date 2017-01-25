@@ -111,17 +111,19 @@ public abstract class AutoEncoder implements Serializable {
      * Stores the decoded data.
      */
     protected float[] decoded;
+    /**
+     * Keeps track whether trainingDone() has been already called or not
+     */
+    protected boolean trainingDone = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Constructs an auto-encoder.
-     *
-     * PLEASE MAKE SURE THAT YOU INIT THE AUTO ENCODER PROPERLY AFTER!!
-     *
-     * To do so, don't forget to:
+     * Constructs an auto-encoder without encoder nor decoder. You <i>must</i>
+     * add them manually afterward, otherwise the instance won't be usable.
+     * To do so, you will have to use the following methods:
      * setEncoder();
      * setDecoder();
      * setInput();
@@ -179,9 +181,10 @@ public abstract class AutoEncoder implements Serializable {
     /**
      * PROTECTED
      * <p>
-     * Constructs an auto-encoder. If all fields are provided this AE is ready to use.
-     * In case is not possible to have all this parameters at the creation moment do please
-     * use the constructor above but don't forget to eventually init the AE properly.
+     * Constructs an auto-encoder. If all fields are provided this AE is ready
+     * to use. In case is not possible to have all this parameters at the
+     * creation moment do please use the constructor above but don't forget to
+     * eventually init the AE properly.
      *
      * @param input       DataBlock which represent the input
      * @param inputX      x coordinate on which the AE is reading input patch
@@ -279,7 +282,14 @@ public abstract class AutoEncoder implements Serializable {
         this.decoder.setOutputArray(decoded);
 
         // Setting previous error and error of encoder
-        this.encoder.setPreviousError((prevErr != null) ? prevErr.patchToArray(this.inputX, this.inputY, this.inputWidth, this.inputHeight) : null);
+        if (prevErr==null) {
+            this.encoder.setPreviousError(null);
+        } else {
+            this.encoder.setPreviousError(
+                    prevErr.patchToArray(this.inputX, this.inputY, this.inputWidth, this.inputHeight)
+            );
+        }
+        
         this.encoder.setError(error.getValues(this.outputX, this.outputY));
 
         // Setting previous error and error of decoder
@@ -314,7 +324,8 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * Trains the auto-encoder.
+     * Trains the auto-encoder. The semantical meaning of the return value
+     * might depend on the kind of encoder and decoder used.
      * @return an estimation of the reconstruction error
      */
     public float train() {
@@ -323,7 +334,7 @@ public abstract class AutoEncoder implements Serializable {
         encoder.compute();
         decoder.compute();
 
-        // Set expected for all input
+        // Set expected for all output
         for (int i = 0; i < inputLength; i++) {
             decoder.setExpected(i, inputArray[i]);
         }
@@ -344,9 +355,7 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * Applies a gradient descent.
-     *
-     * @return the error
+     * Applies a gradient descent when doing supervised training.
      */
     public void learn() {
         encoder.learn();
@@ -354,6 +363,7 @@ public abstract class AutoEncoder implements Serializable {
 
     /**
      * Backpropagate the error, if needed.
+     * @return the mean absolute error of the top layer
      */
     public float backPropagate() {
         // Backpropagate
@@ -371,15 +381,24 @@ public abstract class AutoEncoder implements Serializable {
      * Clearly those AE which need this must override this method
      */
     public void trainingDone() {
-        // Nothing to do.
+        // Place holder for sub-classes to override
     }
 
     /**
+     * Getter for the training done field
+     */
+    public boolean isTrainingDone() {
+        return trainingDone;
+    }
+
+    /**
+     * Can be used to manually activate an output (value 1) or deactivate it
+     * (value 0). This is used when displaying features.
      * @param outputNumber output to activate or not
      * @param state true if activated
      */
-    public void activateOutput(int outputNumber, boolean state) {
-        output.setValue(outputNumber, outputX, outputY, (state) ? 1 : 0);
+    public void activateOutput(int outputNumber, boolean activated) {
+        output.setValue(outputNumber, outputX, outputY, (activated) ? 1 : 0);
     }
 
     /**
@@ -409,14 +428,18 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * Sets the input.
+     * Sets the input, based on the coordinates of the top-left corner of
+     * the input patch.
      *
      * @param db input DataBlock
      * @param x  position x
      * @param y  position y
      */
     public void setInput(DataBlock db, int x, int y) {
-        assert (db != null);
+        if (db==null) {
+            return;
+        }
+        
         assert (x >= 0);
         assert (y >= 0);
 
@@ -483,7 +506,8 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * Sets the output
+     * Sets the output location. Coordinates are based on the top-left corner
+     * of the input patch.
      *
      * @param db output DataBlock
      * @param x  position x
@@ -505,6 +529,11 @@ public abstract class AutoEncoder implements Serializable {
         // Set output for encoder
         encoder.setOutputArray(output.getValues(x, y));
 
+        // If needed also set its error
+        if (error!=null) {
+            encoder.setError(error.getValues(x, y));
+        }
+
         // Set input for decoder (which is the same as the output of the encoder!)
         decoder.setInputArray(output.getValues(x, y));
     }
@@ -517,7 +546,11 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * @return the output array, not a copy
+     * Returns the output array itself, not a copy. For performance reasons,
+     * the same array is always used. If you need to store several outputs,
+     * then you will have to clone it with myAE.getOutputArray().clone();
+     *
+     * @return the output array
      */
     public float[] getOutputArray() {
         return output.getValues(outputX,outputY);
@@ -597,7 +630,13 @@ public abstract class AutoEncoder implements Serializable {
         encoder.setOutputArray((output != null) ? output.getValues(outputX, outputY) : null);
 
         // Setting previous error and error of encoder
-        encoder.setPreviousError((prevErr != null) ? prevErr.patchToArray(this.inputX, this.inputY, this.inputWidth, this.inputHeight) : null);
+        if (prevErr==null) {
+            encoder.setPreviousError(null);
+        } else {
+            encoder.setPreviousError(
+                    prevErr.patchToArray(this.inputX, this.inputY, this.inputWidth, this.inputHeight)
+            );
+        }
         encoder.setError(error.getValues(outputX, outputY));
     }
 
@@ -633,6 +672,7 @@ public abstract class AutoEncoder implements Serializable {
 
     /**
      * Set the decoded array, not a copy
+     * @param d the array to which decoded data will be written
      */
     public void setDecoded(float[] d) {
         decoded = d;
@@ -655,6 +695,8 @@ public abstract class AutoEncoder implements Serializable {
      */
     public void setLearningSpeed(float s) {
         learningSpeed = s;
+        encoder.setLearningSpeed(s);
+        decoder.setLearningSpeed(s);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -682,6 +724,15 @@ public abstract class AutoEncoder implements Serializable {
     /**
      * Child of this class should override this method if necessary
      *
+     * @return true if the autoencoder need a supervised training type
+     */
+    public boolean isSupervised() {
+        return false;
+    }
+
+    /**
+     * Child of this class should override this method if necessary
+     *
      * @return true if the autoencoder has denoising abilities
      */
     public boolean isDenoising() {
@@ -700,12 +751,15 @@ public abstract class AutoEncoder implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Of utmost importance for the correct behaviour of the ConvolutionLayer, the method
-     * clone should return a proper copy of the AE. Take special care of deep copy the layers!
-     * Note however than the dataBlocks should not be cloned!
-     * In fact, we want to copy the AE and not his environment. It is duty of who uses the copy to
-     * change the input, output and errors dataBlock meaningfully!
+     * This very important method is used when convolving the autoencoder in
+     * ConvolutionLayers. An exact copy of the AE must be returned. Take special
+     * care of deep copy the layers! Note however than the dataBlocks should not
+     * be cloned, as we want to copy the AE and not his environment.
+     * It is duty of who uses the copy to change the input, output and errors
+     * dataBlock meaningfully.
+     * @return a copy of the autoencoder
      */
+    @Override
     public abstract AutoEncoder clone();
 
     /**
@@ -725,7 +779,7 @@ public abstract class AutoEncoder implements Serializable {
      * @param b an array
      * @return a copy of b, converted to float[][]
      */
-    protected float[][] copy(double[][] b) {
+    protected static float[][] copy(double[][] b) {
         // Get dimensions
         int n = b.length;
         int m = b[0].length;
@@ -742,6 +796,27 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
+     * Normalise matrix
+     *
+     * @param m matrix to normalise
+     */
+    public float[][] normalise(float[][] m) {
+        double norm = 0;
+        for (int x = 0; x < m.length; x++) {
+            for (int y = 0; y < m[x].length; y++) {
+                norm += Math.pow(m[x][y], 2);
+            }
+        }
+        norm = Math.sqrt(norm);
+        for (int x = 0; x < m.length; x++) {
+            for (int y = 0; y < m[x].length; y++) {
+                m[x][y] /= norm;
+            }
+        }
+        return m;
+    }
+
+    /**
      * Pastes the decoded data onto the given data block.
      * @param data target
      * @param x position
@@ -755,6 +830,8 @@ public abstract class AutoEncoder implements Serializable {
                 p += input.getDepth();
             }
         }
+        // Computing the new input as 1D array form
+        input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
     }
 
     /**

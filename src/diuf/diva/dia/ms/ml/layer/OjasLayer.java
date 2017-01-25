@@ -105,6 +105,7 @@ public class OjasLayer extends AbstractLayer {
     /**
      * Computes the output of the layer.
      */
+    @Override
     public void compute() {
         for (int o = 0; o < outputSize; o++) {
             wSum[o] = bias[o];
@@ -122,6 +123,7 @@ public class OjasLayer extends AbstractLayer {
     /**
      * Applies the Oja's algorithm
      */
+    @Override
     public void learn() {
 
         for (int o = 0; o < outputSize; o++) {
@@ -149,12 +151,19 @@ public class OjasLayer extends AbstractLayer {
 
     /**
      * Applies the backpropagation if needed.
+     * @return the mean absolute error of the top layer
      */
+    @Override
     public float backPropagate() {
 
         float errSum = 0.0f;
         for (int o = 0; o < outputSize; o++) {
             errSum += Math.abs(err[o]);
+            if (prevErr != null) {
+                for (int i = 0; i < inputSize; i++) {
+                    prevErr[i] += err[o] * weight[i][o];
+                }
+            }
         }
 
         return errSum / outputSize;

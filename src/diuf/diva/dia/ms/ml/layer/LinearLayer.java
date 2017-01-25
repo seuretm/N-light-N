@@ -37,6 +37,11 @@ import java.io.IOException;
  */
 public class LinearLayer extends AbstractLayer {
 
+    /**
+     * Just for loggin purpose, it keeps track of how many times weights have been normalized
+     */
+    int normalizationCount = 0;
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,6 +107,7 @@ public class LinearLayer extends AbstractLayer {
     /**
      * Computes the output of the layer.
      */
+    @Override
     public void compute() {
         for (int o = 0; o < outputSize; o++) {
             wSum[o] = bias[o];
@@ -110,17 +116,6 @@ public class LinearLayer extends AbstractLayer {
             }
             output[o] = wSum[o];
         }
-        /*
-        // Here rescale output ?
-        float sum = 0;
-        for (int o = 0; o < outputSize; o++) {
-            sum += output[o];
-        }
-
-        for (int o = 0; o < outputSize; o++) {
-            output[o] /= sum;
-        }
-        */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,35 +124,46 @@ public class LinearLayer extends AbstractLayer {
     /**
      * Applies the gradient descent.
      */
+    @Override
     public void learn() {
+        boolean normalise = false;
         for (int o = 0; o < outputSize; o++) {
             for (int i = 0; i < inputSize; i++) {
                 weight[i][o] = (1.0f - decay) * weight[i][o] - learningSpeed * gradient[i][o];
                 gradient[i][o] = 0.0f;
-                // Emergency normalization
-                if (weight[i][o] > 10) {
-                    System.out.println("!WARNING! Weights are too big! Normalizing!");
-                    float norm = 0;
-                    for (int x = 0; x < weight.length; x++) {
-                        for (int y = 0; y < weight[x].length; y++) {
-                            norm += Math.sqrt(Math.pow(weight[i][o], 2));
-                        }
-                    }
-                    for (int x = 0; x < weight.length; x++) {
-                        for (int y = 0; y < weight[x].length; y++) {
-                            weight[i][o] /= norm;
-                        }
-                    }
+                if (Math.abs(weight[i][o]) > 5) {
+                    normalise = true;
                 }
             }
             bias[o] = (1.0f - decay) * bias[o] - learningSpeed * biasGradient[o];
             biasGradient[o] = 0.0f;
         }
+        // Weight normalization to prevent corruption
+        if (normalise) {
+            normalizationCount++;
+            if (normalizationCount % 100000 == 0) {
+                System.out.println("!WARNING! Weights are growing too big! Normalizing for the " + normalizationCount + " time!");
+            }
+            double norm = 0;
+            for (int x = 0; x < weight.length; x++) {
+                for (int y = 0; y < weight[x].length; y++) {
+                    norm += Math.pow(weight[x][y], 2);
+                }
+            }
+            norm = Math.sqrt(norm);
+            for (int x = 0; x < weight.length; x++) {
+                for (int y = 0; y < weight[x].length; y++) {
+                    weight[x][y] /= norm;
+                }
+            }
+        }
     }
 
     /**
      * Applies the backpropagation if needed.
+     * @return the mean absolute error of the top layer
      */
+    @Override
     public float backPropagate() {
         float errSum = 0.0f;
         if (prevErr == null) {

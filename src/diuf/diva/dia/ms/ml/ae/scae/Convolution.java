@@ -27,6 +27,7 @@
 package diuf.diva.dia.ms.ml.ae.scae;
 
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
+import diuf.diva.dia.ms.ml.ae.SupervisedAutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
 
 import java.io.Serializable;
@@ -125,61 +126,8 @@ public class Convolution  implements Serializable {
      * Maybe this part could be multi-threaded :-)
      */
     public void encode() {
-
-        if (true) {
-            for (int ox = 0; ox < outWidth; ox++) {
-                int ix = inputX + ox * getInputOffsetX();
-                for (int oy = 0; oy < outHeight; oy++) {
-                    int iy = inputY + oy * getInputOffsetY();
-                    base.setInput(input, ix, iy);
-                    base.setOutput(output, ox, oy);
-                    base.encode();
-                }
-            }
-            // Reset the output to initial position. This is necessary for saving/loading AE correctly
-            base.setOutput(output, 0, 0);
-        } else {
-            try {
-                // Create the thread pool
-                ExecutorService executor = Executors.newFixedThreadPool(8);
-
-                // Carry out the job
-                for (int ox = 0; ox < outWidth; ox++) {
-                    int ix = inputX + ox * getInputOffsetX();
-                    executor.execute(new Worker(base, ix, ox));
-                }
-
-            /* Initiates an orderly shutdown, in which previously submitted
-             * tasks are executed, but no new tasks will be accepted. */
-                executor.shutdown();
-
-            /* Blocks until all tasks have completed execution after a shutdown
-             * request, or the timeout occurs, or the current thread is interrupted,
-             * whichever happens first. */
-                executor.awaitTermination(1, TimeUnit.HOURS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            // Reset the output to initial position. This is necessary for saving/loading AE correctly
-            base.setOutput(output, 0, 0);
-        }
-
-    }
-
-    private final class Worker implements Runnable {
-
-        private final AutoEncoder base;
-        private final int ix, ox;
-
-        public Worker(AutoEncoder base, int ix, int ox) {
-            this.base = base;
-            this.ix = ix;
-            this.ox = ox;
-        }
-
-        @Override
-        public void run() {
+        for (int ox = 0; ox < outWidth; ox++) {
+            int ix = inputX + ox * getInputOffsetX();
             for (int oy = 0; oy < outHeight; oy++) {
                 int iy = inputY + oy * getInputOffsetY();
                 base.setInput(input, ix, iy);
@@ -187,6 +135,8 @@ public class Convolution  implements Serializable {
                 base.encode();
             }
         }
+        // Reset the output to initial position. This is necessary for saving/loading AE correctly
+        base.setOutput(output, 0, 0);
     }
 
     /**
@@ -231,6 +181,25 @@ public class Convolution  implements Serializable {
                 base.setInput(input, ix, iy);
                 base.setOutput(output, ox, oy);
                 err += base.train();
+            }
+        }
+        return (err / outWidth) / outHeight;
+    }
+
+    /**
+     * Trains the autoencoder in a supervised fashion
+     *
+     * @return the training error
+     */
+    public float train(int label) {
+        float err = 0.0f;
+        for (int ox = 0; ox < outWidth; ox++) {
+            int ix = inputX + ox * getInputOffsetX();
+            for (int oy = 0; oy < outHeight; oy++) {
+                int iy = inputY + oy * getInputOffsetY();
+                base.setInput(input, ix, iy);
+                base.setOutput(output, ox, oy);
+                err += ((SupervisedAutoEncoder) base).train(label);
             }
         }
         return (err / outWidth) / outHeight;
@@ -361,11 +330,19 @@ public class Convolution  implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * Changes the size of the convolution. The output DataBlock will be recreated,
+     * therefore all objects making use of it will need to update their reference.
+     * @param mW new width
+     * @param mH new height
+     */
     public void resize(int mW, int mH) {
         this.outWidth = mW;
         this.outHeight = mH;
 
         output = new DataBlock(outWidth, outHeight, base.getOutputDepth());
+        base.setOutput(output, 0, 0);
+        base.setError(new DataBlock(outWidth, outHeight, base.getOutputDepth()));
     }
 
     /**

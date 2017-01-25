@@ -40,6 +40,10 @@ import java.io.ObjectInputStream;
  */
 public class Load extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public Load(XMLScript script) {
         super(script);
     }

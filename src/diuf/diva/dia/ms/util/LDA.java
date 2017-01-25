@@ -264,6 +264,30 @@ public class LDA {
         return rv;
     }
 
+    /**
+     * Getter for the inverse of the transformation matrix L
+     *
+     * @return return the transformation matrix L
+     */
+    public double[][] getInverseLinearDiscriminants() {
+        return getInverseLinearDiscriminants(numFeatures);
+    }
+
+    /**
+     * Getter for the inverse of the transformation matrix L sub-sampled
+     *
+     * @param m number of cols to be kept
+     * @return return the transformation matrix L sub-sampled to only m columns from left
+     */
+    public double[][] getInverseLinearDiscriminants(int m) {
+        double[][] M = new Matrix(L).inverse().getArray();
+        double[][] rv = new double[m][numFeatures];
+        for (int i = 0; i < m; i++) {
+            System.arraycopy(M[i], 0, rv[i], 0, numFeatures);
+        }
+        return rv;
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Private
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -276,10 +300,13 @@ public class LDA {
         int n2 = b[0].length;
         if (n1 != m2) throw new RuntimeException("Illegal matrix dimensions.");
         double[][] c = new double[m1][n2];
-        for (int i = 0; i < m1; i++)
-            for (int j = 0; j < n2; j++)
-                for (int k = 0; k < n1; k++)
+        for (int i = 0; i < m1; i++) {
+            for (int j = 0; j < n2; j++) {
+                for (int k = 0; k < n1; k++) {
                     c[i][j] += a[i][k] * b[k][j];
+                }
+            }
+        }
         return c;
     }
 
@@ -288,9 +315,11 @@ public class LDA {
         int m = a.length;
         int n = a[0].length;
         double[][] b = new double[n][m];
-        for (int i = 0; i < m; i++)
-            for (int j = 0; j < n; j++)
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
                 b[j][i] = a[i][j];
+            }
+        }
         return b;
     }
 
@@ -325,4 +354,10 @@ public class LDA {
         return numClasses;
     }
 
+    /**
+     * Returns the number of features
+     */
+    public int getNumFeatures() {
+        return numFeatures;
+    }
 }

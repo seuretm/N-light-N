@@ -39,6 +39,10 @@ import java.io.File;
  */
 public class ShowFeatures extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public ShowFeatures(XMLScript script) {
         super(script);
     }

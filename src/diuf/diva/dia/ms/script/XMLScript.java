@@ -43,6 +43,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.regex.Matcher;
 
 
@@ -91,7 +92,11 @@ public class XMLScript {
      * Maps IDs to classifiers.
      */
     public final HashMap<String, Classifier> classifiers = new HashMap<>();
-    
+    /**
+     * A random object,useful to seed the network globally
+     */
+    private static Random random;
+
     /**
      * Constructs an XML script.
      * @param fname file name from which to read the XML file
@@ -104,6 +109,13 @@ public class XMLScript {
         root = xml.getRootElement();
         readColorspace();
         prepareCommands();
+
+        // Select the appropriate rows for your launch. Please comment/De-coment the logging too
+
+        random = new Random(123456789l);
+        //System.out.println("\n\n[WARNING] The network randomness is being seeded in XMLScript\n\n");
+
+        random = new Random();
     }
     
     /**
@@ -126,6 +138,7 @@ public class XMLScript {
         addCommand(new UnloadDataset(this));
         addCommand(new Save(this));
         addCommand(new Load(this));
+        addCommand(new Remove(this));
         // Scae
         addCommand(new CreateStackedAE(this));
         addCommand(new AddLayer(this));
@@ -137,6 +150,7 @@ public class XMLScript {
         //Classifier
         addCommand(new CreateClassifier(this));
         addCommand(new TrainClassifier(this));
+        addCommand(new PreTrainClassifier(this));
         addCommand(new EvaluateClassifier(this));
         // Utility
         addCommand(new DeleteFeatures(this));
@@ -145,9 +159,7 @@ public class XMLScript {
         addCommand(new Define(this));
         addCommand(new Print(this));
         addCommand(new StoreResult(this));
-        // Example
-        addCommand(new myCommandExample(this));
-
+        
     }
     
     /**
@@ -229,6 +241,16 @@ public class XMLScript {
     public void print(String s) {
         SimpleDateFormat ft = new SimpleDateFormat("HH:mm:ss.SSS");
         System.out.print(ft.format(new Date()) + ": " + s);
+    }
+
+    /**
+     * @return the random
+     */
+    public static Random getRandom() {
+        if (random==null) {
+            random = new Random();
+        }
+        return random;
     }
 
 }

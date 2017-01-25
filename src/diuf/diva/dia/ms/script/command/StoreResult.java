@@ -34,6 +34,10 @@ import org.jdom2.Element;
  */
 public class StoreResult extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public StoreResult(XMLScript script) {
         super(script);
     }

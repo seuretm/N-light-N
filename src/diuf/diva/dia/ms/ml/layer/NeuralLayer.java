@@ -95,6 +95,7 @@ public class NeuralLayer extends AbstractLayer {
     /**
      * Computes the output of the layer.
      */
+    @Override
     public void compute() {
         for (int o = 0; o < outputSize; o++) {
             wSum[o] = bias[o];
@@ -111,6 +112,7 @@ public class NeuralLayer extends AbstractLayer {
     /**
      * Applies the gradient descent.
      */
+    @Override
     public void learn() {
         for (int o = 0; o < outputSize; o++) {
             for (int i = 0; i < inputSize; i++) {
@@ -124,7 +126,9 @@ public class NeuralLayer extends AbstractLayer {
 
     /**
      * Applies the backpropagation if needed.
+     * @return the mean average error of the top layer
      */
+    @Override
     public float backPropagate() {
         float errSum = 0.0f;
         // It does not look nice, but it decreases MUCH the number
@@ -174,6 +178,4 @@ public class NeuralLayer extends AbstractLayer {
         );
 
     }
-
-
 }

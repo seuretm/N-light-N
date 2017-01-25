@@ -43,6 +43,10 @@ import org.jdom2.Element;
  */
 public class Describe extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public Describe(XMLScript script) {
         super(script);
     }
@@ -81,22 +85,58 @@ public class Describe extends AbstractCommand {
         return "";
     }
     
+    /**
+     * Describes an SCAE
+     * @param scae to describe
+     */
     protected void describe(SCAE scae) {
-        if (scae==null) {
-            return;
-        }
-        script.println("Stacked Convolution AutoEncoder");
-        script.println("Number of layers: " + scae.getLayers().size());
-        for (int n=0; n<scae.getLayers().size(); n++) {
-            Convolution convo = scae.getLayer(n);
-            script.println("Layer " + n + ":");
-            script.println("\tInput size: " + convo.getInputPatchWidth() + "x" + convo.getInputPatchHeight() + "x" + convo.getInputPatchDepth());
-            script.println("\tPatch size: " + convo.getBase().getInputWidth() + "x" + convo.getBase().getInputHeight());
-            script.println("\tOutput size: " + convo.getOutput().getWidth() + "x" + convo.getOutput().getHeight() + "x" + convo.getOutput().getDepth());
-            script.println("\tAutoencoder: " + convo.getBase().getClass().getSimpleName());
+        for (String s : getDescription(scae).split("\n")) {
+            script.println(s);
         }
     }
     
+    public static String getDescription(SCAE scae) {
+        assert (scae!=null);
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("Stacked Convolution AutoEncoder\n");
+        sb.append("Number of layers: " + scae.getLayers().size()+"\n");
+        for (int n=0; n<scae.getLayers().size(); n++) {
+            Convolution convo = scae.getLayer(n);
+            sb.append("Layer " + n + ":\n");
+            sb.append(
+                    "\tInput size: "
+                            + convo.getInputPatchWidth()
+                            + "x"
+                            + convo.getInputPatchHeight()
+                            + "x"
+                            + convo.getInputPatchDepth()
+                            + "\n"
+            );
+            sb.append(
+                    "\tPatch size: "
+                            + convo.getBase().getInputWidth()
+                            + "x"
+                            + convo.getBase().getInputHeight()
+                            + "\n"
+            );
+            sb.append(
+                    "\tOutput size: "
+                            + convo.getOutput().getWidth()
+                            + "x"
+                            + convo.getOutput().getHeight()
+                            + "x" + convo.getOutput().getDepth()
+                            + "\n"
+            );
+            sb.append("\tAutoencoder: " + convo.getBase().getClass().getSimpleName());
+        }
+        return sb.toString();
+    }
+    
+    /**
+     * Describes a dataset.
+     * @param ds to describe
+     */
     protected void describe(Dataset ds) {
         script.println("Dataset");
         script.println("Number of documents: " + ds.size());
@@ -106,15 +146,19 @@ public class Describe extends AbstractCommand {
             script.println("\tDocument " + (n + 1) + ": " + db.getWidth() + "x" + db.getHeight() + "x" + db.getDepth());
         }
     }
-    
+
+    /**
+     * Describes an AEClassifier
+     * @param aec to describe
+     */
     protected void describe(AEClassifier aec) {
         script.println("Classifier - neural network on top of an autoencoder");
         describe(aec.getSCAE());
         MLNN nn = aec.getMLNN();
         script.println("Multilayer Neural Network:");
-        for (int l=0; l<nn.getLayersCount(); l++) {
-            NeuralLayer nl = nn.getLayer(l);
-            script.println("\tLayer " + (l + 1) + ": " + nl.getOutputSize() + " neurons");
+            for (int l=0; l<nn.getLayersCount(); l++) {
+                NeuralLayer nl = nn.getLayer(l);
+                script.println("\tLayer " + (l + 1) + ": " + nl.getOutputSize() + " neurons");
         }
     }
 

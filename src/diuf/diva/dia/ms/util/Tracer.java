@@ -114,6 +114,7 @@ public class Tracer {
      * @param yLabel label on the Y axis
      * @param expectedSamples the number of expected samples that will be added to the plot. This is used to
      *                        perform a correct online down sampling of data maintaining the density of points.
+     * @param visibile true if the the tracer has to be displayed
      */
     public Tracer(String title, String xLabel, String yLabel, int expectedSamples, boolean visibile) {
 
@@ -262,7 +263,11 @@ public class Tracer {
 
         // Compute the moving average. The kernel size specifies the size of the 'moving' part
         int kernelMovingAverageSize = Math.round(MAXPOINTS / 20);
-        Kernel kernelMovingAverage = Kernel.getUniform(kernelMovingAverageSize, kernelMovingAverageSize - 1, 1.0D).normalize();
+        Kernel kernelMovingAverage = Kernel.getUniform(
+                kernelMovingAverageSize,
+                kernelMovingAverageSize - 1,
+                1.0D
+        ).normalize();
         Convolution average = new Convolution(dataReduced, kernelMovingAverage, Filter.Mode.OMIT, new int[]{1});
         DataSeries dataMovingAvg = new DataSeries("Moving Average", average, new int[]{0, 1});
 
@@ -293,7 +298,13 @@ public class Tracer {
 
         // Compute the moving median. The kernel size specifies the size of the 'moving' part
         int kernelMovingMedianSize = Math.round(MAXPOINTS / 20);
-        Median median = new Median(dataReduced, kernelMovingMedianSize, kernelMovingMedianSize - 1, Filter.Mode.OMIT, new int[]{1});
+        Median median = new Median(
+                dataReduced,
+                kernelMovingMedianSize,
+                kernelMovingMedianSize - 1,
+                Filter.Mode.OMIT,
+                new int[]{1}
+        );
         DataSeries dataMovingMedian = new DataSeries("Moving Median", median, new int[]{0, 1});
 
         // Add data to the plot
@@ -313,6 +324,9 @@ public class Tracer {
         if (!visible) {
             return;
         }
+
+        frame = new JFrame();
+
         // Display the plot
         frame.getContentPane().add(new InteractivePanel(plot));
 

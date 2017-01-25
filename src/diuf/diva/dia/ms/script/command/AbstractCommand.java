@@ -39,6 +39,10 @@ import org.jdom2.Element;
 public abstract class AbstractCommand {
     protected XMLScript script;
     
+    /**
+     * Constructs a new command for the given script.
+     * @param script script instance ("this" in the script)
+     */
     public AbstractCommand(XMLScript script) {
         this.script = script;
     }

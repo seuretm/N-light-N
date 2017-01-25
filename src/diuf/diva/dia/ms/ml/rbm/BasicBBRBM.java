@@ -31,6 +31,8 @@ import static java.lang.Math.*;
 /**
  * Basic Binary-Binary RBM, based on the following web page:
  * http://blog.echen.me/2011/07/18/introduction-to-restricted-boltzmann-machines/
+ * This class should be used as starting point for implementing RBMs with
+ * more features/optimizations.
  * @author Mathias Seuret
  */
 public class BasicBBRBM implements Serializable {

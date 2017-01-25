@@ -23,15 +23,14 @@
   License along with this software; if not, write to the Free Software
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ******************************************************************************/
-
 package diuf.diva.dia.ms.ml.ae;
 
 import diuf.diva.dia.ms.ml.rbm.BasicBBRBM;
-
 import java.io.Serializable;
 
 /**
- *
+ * This is experimental and should be used only as base for future experiments
+ * on RBMs.
  * @author Mathias Seuret
  */
 
@@ -39,6 +38,13 @@ public class BBRBMUnit extends AutoEncoder implements Serializable {
     BasicBBRBM rbm;
     
     
+    /**
+     * Constructs a binary-to-binary RBM.
+     * @param inW input patch width
+     * @param inH input patch height
+     * @param inD input patch depth
+     * @param oD number of hidden units (i.e., features)
+     */
     public BBRBMUnit(int inW, int inH, int inD, int oD) {
         super(inW, inH, inD, oD);
         rbm = new BasicBBRBM(inW*inH*inD, oD);

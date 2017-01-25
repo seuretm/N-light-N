@@ -59,7 +59,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
     /**
      * List of layers.
      */
-    private ArrayList<ConvolutionLayer> layers = new ArrayList<>();
+    private ArrayList<ConvolutionalLayer> layers = new ArrayList<>();
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -77,13 +77,17 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
 
         // Add all basic layers from the scae
         for (Convolution c : scae.getLayers()) {
-            layers.add(new ConvolutionLayer(c));
+            layers.add(new SingleUnitConvolution(c));
         }
 
         // Setting input and previous error for all layers
         for (int i = 1; i < layers.size(); i++) {
             layers.get(i).setInput(layers.get(i - 1).getOutput(), 0, 0);
             layers.get(i).setPrevError(layers.get(i - 1).getError());
+        }
+        
+        for (ConvolutionalLayer l : layers) {
+            l.clearError();
         }
     }
 
@@ -113,20 +117,39 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
 
         // Add all basic layers from the base
         for (Convolution c : base.getLayers()) {
-            layers.add(new ConvolutionLayer(c));
+            layers.add(new SingleUnitConvolution(c));
         }
 
         // Add the additional layer required for classification
         for (int nbNeurons : additionalLayers) {
-            ConvolutionLayer top = layers.get(layers.size()-1);
-            layers.add(new ConvolutionLayer(top, layerClassName, nbNeurons));
+            ConvolutionalLayer top = layers.get(layers.size()-1);
+            layers.add(new SingleUnitConvolution(top, layerClassName, nbNeurons));
         }
 
         // Add the top layer
-        ConvolutionLayer top = layers.get(layers.size() - 1);
-        layers.add(new ConvolutionLayer(top, layerClassName, nbClasses));
+        ConvolutionalLayer top = layers.get(layers.size() - 1);
+        layers.add(new SingleUnitConvolution(top, layerClassName, nbClasses));
 
-        // Adjust error datablocks rewferences
+        // Adjust input/error datablocks references
+        for (int i = 1; i < layers.size(); i++) {
+            layers.get(i).setInput(layers.get(i - 1).getOutput(), 0, 0);
+            layers.get(i).setPrevError(layers.get(i - 1).getError());
+        }
+        
+        for (ConvolutionalLayer l : layers) {
+            l.clearError();
+        }
+    }
+    
+    /**
+     * Allows the units to learn different parameters for the
+     * different positions in the convolutions. Calling this
+     * method leads to having the legacy behavior of N-light-N.
+     */
+    public void deconvolve() {
+        for (int i=0; i<layers.size(); i++) {
+            layers.set(i, new MultipleUnitsConvolution((SingleUnitConvolution)layers.get(i)));
+        }
         for (int i = 1; i < layers.size(); i++) {
             layers.get(i).setInput(layers.get(i - 1).getOutput(), 0, 0);
             layers.get(i).setPrevError(layers.get(i - 1).getError());
@@ -144,6 +167,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param x  position
      * @param y  position
      */
+    @Override
     public void setInput(DataBlock db, int x, int y) {
         layers.get(0).setInput(db, x, y);
     }
@@ -154,9 +178,10 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param cx center x
      * @param cy center y
      */
+    @Override
     public void centerInput(DataBlock db, int cx, int cy) {
         //System.out.println("Setting center @ "+cx+","+cy);
-        ConvolutionLayer l = layers.get(0);
+        ConvolutionalLayer l = layers.get(0);
         l.setInput(
                 db,
                 cx - l.getInputWidth() / 2,
@@ -171,8 +196,9 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
     /**
      * Computes the output.
      */
+    @Override
     public void compute() {
-        for (ConvolutionLayer layer : layers) {
+        for (ConvolutionalLayer layer : layers) {
             layer.compute();
         }
     }
@@ -192,6 +218,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param multiClass defines whether or not the result will be multiclass
      * @return the index of the output with the highest value
      */
+    @Override
     public int getOutputClass(boolean multiClass) {
         int res = 0;
         if (multiClass) {
@@ -213,32 +240,13 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
         return res;
     }
 
-    // TODO REMOVE this is for debugging only
-    public void getOutputScores() {
-
-        int res = 0;
-        DataBlock db = layers.get(layers.size() - 1).getOutput();
-
-        StringBuilder s = new StringBuilder();
-        s.append("[");
-        for (int i = 0; i < db.getDepth(); i++) {
-            if (db.getValue(i, 0, 0) > db.getValue(res, 0, 0)) {
-                res = i;
-            }
-            s.append(Math.round(100 * db.getValue(i, 0, 0)) / 100.0);
-            s.append(",");
-        }
-        s.append("] \t\t");
-        s.append(Math.round(100 * db.getValue(res, 0, 0)) / 100.0);
-        System.out.println(s);
-    }
-
     /**
      * Returns the size of the output. Used mainly for knowing how many maximal different classes are we
      * working with
      *
      * @return the size of the output
      */
+    @Override
     public int getOutputSize() {
         return layers.get(layers.size() - 1).getOutput().getDepth();
     }
@@ -260,30 +268,28 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param expectedClass output number which should correspond to the class
      * @param expectedValue expected value for the expected class
      */
+    @Override
     public void setExpected(int expectedClass, float expectedValue) {
         topLayer().setExpected(0, 0, expectedClass, expectedValue);
     }
 
     /**
-     * Learn all layers
+     * Applies the gradient descents on the different layers.
      */
-    public float learn() {
+    @Override
+    public void learn() {
         learn(layers.size());
-        // TODO temporary as maybe learn() will return void
-        return -1;
     }
 
     /**
      * Learn the specified amount of layers from the top
-     *
      * @param nbLayers how many layers from the top ?
      */
-    public float learn(int nbLayers) {
+    @Override
+    public void learn(int nbLayers) {
         for (int i = layers.size() - 1; i>=0 && i >= layers.size() - nbLayers; i--) {
             layers.get(i).learn();
         }
-        // TODO temporary as maybe learn() will return void
-        return -1;
     }
 
     /**
@@ -291,12 +297,9 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      *
      * @return average of the absolute errors of each output of the top layer
      */
+    @Override
     public float backPropagate() {
         float res = backPropagate(layers.size());
-        // Clear error in whole network
-        for (ConvolutionLayer l : layers) {
-            l.clearError();
-        }
         return res;
     }
 
@@ -306,6 +309,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param nbLayers how many layers from the top ?
      * @return average of the absolute errors of each output of the top layer
      */
+    @Override
     public float backPropagate(int nbLayers) {
 
         /* Backpropagate
@@ -318,7 +322,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
         }
 
         // Clear error in whole network
-        for (ConvolutionLayer l : layers) {
+        for (ConvolutionalLayer l : layers) {
             l.clearError();
         }
         return err;
@@ -340,6 +344,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
     /**
      * @return the width of the perception patch
      */
+    @Override
     public int getInputWidth() {
         return inputWidth;
     }
@@ -347,6 +352,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
     /**
      * @return the height of the perception patch
      */
+    @Override
     public int getInputHeight() {
         return inputHeight;
     }
@@ -358,10 +364,17 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
         return inputDepth;
     }
 
-    public ConvolutionLayer getLayer(int n) {
+    /**
+     * @param n layer number
+     * @return the n-th layer of the FFCNN
+     */
+    public ConvolutionalLayer getLayer(int n) {
         return layers.get(n);
     }
 
+    /**
+     * @return the number of outputs of the FFCNN
+     */
     public int getOutputDepth() {
         return layers.get(layers.size() - 1).getOutput().getDepth();
     }
@@ -377,7 +390,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @return the error of the base layer
      */
     public DataBlock getAccumulator() {
-        return layers.get(0).prevAccumulator;
+        return layers.get(0).getPrevError();
     }
 
     /**
@@ -403,7 +416,7 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    private ConvolutionLayer topLayer() {
+    private ConvolutionalLayer topLayer() {
         return layers.get(layers.size() - 1);
     }
 
@@ -432,30 +445,9 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      *
      * @return the number of layers
      */
+    @Override
     public int getNumLayers() {
         return layers.size();
-    }
-
-    public void evaluateInputImportance() {
-        ConvolutionLayer top = layers.get(layers.size() - 1);
-        for (int i=0; i<top.outDepth; i++) {
-            top.getOutput().setValue(i, 0, 0, 1);
-        }
-        for (int l=layers.size()-1; l>=0; l--) {
-            layers.get(l).getInput().clear();
-            layers.get(l).evaluateInputImportance();
-        }
-    }
-
-    public void evaluateInputImportance(int inputNum) {
-        ConvolutionLayer top = layers.get(layers.size() - 1);
-        for (int i=0; i<top.outDepth; i++) {
-            top.getOutput().setValue(i, 0, 0, (i == inputNum) ? 1 : 0);
-        }
-        for (int l=layers.size()-1; l>=0; l--) {
-            layers.get(l).getInput().clear();
-            layers.get(l).evaluateInputImportance();
-        }
     }
 
     /**
@@ -464,16 +456,8 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @param fileName file name
      * @throws IOException if the file cannot be written to
      */
+    @Override
     public void save(String fileName) throws IOException {
-        // Check whether the path is existing, if not create it
-        File file = new File(fileName);
-        if (!file.isDirectory()) {
-            file = file.getParentFile();
-        }
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-
         ObjectOutputStream oop = new ObjectOutputStream(new FileOutputStream(fileName));
         // Dummy input
         setInput(new DataBlock(getInputWidth(), getInputHeight(), getInputDepth()), 0, 0);
@@ -489,13 +473,14 @@ public class FFCNN implements Classifier, Serializable, Cloneable {
      * @throws IOException            if the file cannot be read for some reason
      * @throws ClassNotFoundException if the file contains an older version of the FFCNN
      */
-    public FFCNN load(String fileName) throws IOException, ClassNotFoundException {
+    public static FFCNN load(String fileName) throws IOException, ClassNotFoundException {
         return (FFCNN) Classifier.load(fileName);
     }
 
     /**
      * Clones the FFCNN. Throws an error in case of failure.
      * @return a new FFCNN
+     * @throws java.lang.CloneNotSupportedException in case of bad implementation of a layer
      */
     @Override
     public FFCNN clone() throws CloneNotSupportedException {

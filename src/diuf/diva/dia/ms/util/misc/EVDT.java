@@ -6,6 +6,7 @@ import com.mkobos.pca_transform.covmatrixevd.EVDResult;
 /**
  * Version of the eigenvalue decomposition where values of standard deviations
  * (i.e. square roots of the eigenvalues) below a certain threshold are omitted.
+ *
  * @author Mateusz Kobos (https://github.com/mkobos/pca_transform)
  */
 public class EVDT {
@@ -26,11 +27,13 @@ public class EVDT {
 	public EVDT(EVDResult evd) {
 		this(evd, Math.sqrt(precision));
 	}
+
 	/**
          * @param evd EVD result
-	 * @param tol threshold parameter of the method - the same parameter
-	 * as used in R environment's `prcomp` function (see the paragraph on
-	 * {@code tol} parameter). */
+     * @param tol threshold parameter of the method - the same parameter as used
+     * in R environment's `prcomp` function (see the paragraph on {@code tol}
+     * parameter).
+     */
 	public EVDT(EVDResult evd, double tol) {
 		this.evd = evd;
 		this.threshold = firstComponentSD(evd)*tol;
@@ -52,10 +55,17 @@ public class EVDT {
 		return threshold;
 	}
 
-	public Matrix getDAboveThreshold(){
+    /**
+     * @return a new matrix removing all components which are completely useless
+     */
+    public Matrix getDAboveThreshold() {
 		int aboveThresholdElemsNo = getElementsNoAboveThreshold();
-		Matrix newD = evd.d.getMatrix(0, aboveThresholdElemsNo - 1,
-				0, aboveThresholdElemsNo-1);
+                Matrix newD = evd.d.getMatrix(
+                    0,
+                    aboveThresholdElemsNo - 1,
+                    0,
+                    aboveThresholdElemsNo - 1
+            );
 		return newD;
 	}
 

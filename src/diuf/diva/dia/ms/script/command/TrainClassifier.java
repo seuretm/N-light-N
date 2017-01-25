@@ -28,11 +28,16 @@ package diuf.diva.dia.ms.script.command;
 
 import diuf.diva.dia.ms.ml.Classifier;
 import diuf.diva.dia.ms.script.XMLScript;
+import diuf.diva.dia.ms.util.BiDataBlock;
 import diuf.diva.dia.ms.util.DataBlock;
 import diuf.diva.dia.ms.util.Dataset;
 import diuf.diva.dia.ms.util.Tracer;
+import diuf.diva.dia.ms.util.misc.ImageAnalysis;
+import diuf.diva.dia.ms.util.misc.Pixel;
 import org.jdom2.Element;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -45,6 +50,10 @@ import java.util.HashMap;
  */
 public class TrainClassifier extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public TrainClassifier(XMLScript script) {
         super(script);
     }
@@ -72,6 +81,15 @@ public class TrainClassifier extends AbstractCommand {
 
     @Override
     public String execute(Element element) throws Exception {
+
+        /** If the tag </filenamebased> is present
+         *  call the relative method. Otherwise go on
+         *  with typical training.
+         */
+        if (element.getChild("filenamebased") != null) {
+            fileNameBased(element);
+            return "";
+        }
 
         // Fetching classifier
         String ref = readAttribute(element, "ref");
@@ -110,7 +128,13 @@ public class TrainClassifier extends AbstractCommand {
                  */
                 int expectedSamples = SAMPLES / (ds.size() * classifier.getOutputSize());
                 // Tracer init
-                tracer = new Tracer(classifier.name() + " training error", "Epoch", "Error", expectedSamples, element.getChild("display-progress") != null);
+                tracer = new Tracer(
+                        classifier.name() + " training error",
+                        "Epoch",
+                        "Error",
+                        expectedSamples,
+                        element.getChild("display-progress") != null
+                );
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -118,7 +142,15 @@ public class TrainClassifier extends AbstractCommand {
 
 
         // Train the classifier
-        script.println("\"SCAE Starting training[" + ref + "] {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "}");
+        script.println(
+                "\"SCAE Starting training["
+                        + ref
+                        + "] {maximum time:"
+                        + MAXTIME
+                        + "m, samples:"
+                        + SAMPLES
+                        + "}"
+        );
 
         long startTime = System.currentTimeMillis();
 
@@ -165,12 +197,16 @@ public class TrainClassifier extends AbstractCommand {
      * XML syntax to use this feature:
      *
      * <train-classifier ref="myClassifier">
-     * <dataset>stringID</dataset>           // ID of the testing data set
-     * <groundTruth>stringID</groundTruth>   // ID of the ground truth data set
+     * <!-- ID of the test dataset -->
+     * <dataset>stringID</dataset>
+     * <!-- ID of the ground truth dataset -->
+     * <groundTruth>stringID</groundTruth>
      * <samples>int</samples>
      * <max-time>int</max-time>
-     * <display-progress>200</display-progress> 			// optional
-     * <save-progress>stringPATH</save-progress> 			// optional: but make no sense if display progress is not there
+     * <!-- optional -->
+     * <display-progress>200</display-progress>
+     * <!-- optional -->
+     * <save-progress>stringPATH</save-progress>
      * </train-classifier>
      *
      * @param classifier the classifier which is going to be trained
@@ -179,6 +215,8 @@ public class TrainClassifier extends AbstractCommand {
      *                   is immediately interrupted and the result returned
      */
     private void trainPixelBasedClassifiers(Classifier classifier, Dataset dsImg, Dataset dsGt) {
+
+        // Time of start of the execution, necessary to stop after max time has reached
         long startTime = System.currentTimeMillis();
 
         // Counter that keeps track on how many samples have been already executed
@@ -192,7 +230,7 @@ public class TrainClassifier extends AbstractCommand {
 
         // Epoch-wise error
         double err;
-        int epochSize = 0;
+        int epochSize;
 
         // Batch handling
         int batch = 0;
@@ -211,8 +249,8 @@ public class TrainClassifier extends AbstractCommand {
         // ImageAnalysis init, for data balancing
         ImageAnalysis[] imageAnalyses = new ImageAnalysis[dsImg.size()];
         for (int i = 0; i < dsImg.size(); i++) {
-            imageAnalyses[i] = new ImageAnalysis(dsGt.get(i), classifier);
-            imageAnalyses[i].subSample(SAMPLES / dsImg.size());
+            imageAnalyses[i] = new ImageAnalysis(dsGt.get(i), classifier.getInputWidth(), classifier.getInputHeight());
+            imageAnalyses[i].subSample((int) Math.ceil(SAMPLES / dsImg.size()));
         }
 
         script.print("Progress[");
@@ -239,15 +277,12 @@ public class TrainClassifier extends AbstractCommand {
                 for (int c = 0; c < imageAnalyses[i].nbClasses; c++) {
 
                     // Get next representative
-                    Pixel p = imageAnalyses[i].getRandomRepresentative(c);
+                    Pixel p = imageAnalyses[i].getNextRepresentative(c);
 
                     // If pixel 'p' is null it means that this specific GT does not contain this class
-                    System.out.println("Doc "+i+", class "+c);
                     if (p == null) {
-                        System.out.println("  Not found");
                         continue;
                     }
-                    
 
                     // Set input to classifier
                     classifier.centerInput(dsImg.get(i), p.x, p.y);
@@ -299,148 +334,255 @@ public class TrainClassifier extends AbstractCommand {
         System.out.println(" 100%]");
     }
 
+    /**
+     * This method is designed to train a classifier with the GT on his filename.
+     * Furthermore, it is assumed that each input image is same size as the classifier
+     * input size. Examples of dataset like this are: CIFAR, MNIST.
+     * I am sorry, I know this is not the most elegant way to implement but I lack
+     * the time to do it better.
+     * In the future maybe Dataset will contain the filename of the data it reads
+     * and will make possible to merge this method with his Dataset based counterpart.
+     * <p>
+     * XML syntax to use this feature:
+     * <p>
+     * <train-classifier ref="myClassifier">
+     * <dataset>stringPATH</dataset>           // PATH (and not ID!) of the training data set
+     * </filenamebased>
+     * <subsampledataset>500</subsampledataset>    // Optional: specifies if the dataset should be subsampled
+     * <samples>int</samples>
+     * <max-time>int</max-time>
+     * <display-progress>200</display-progress> 			// optional
+     * <save-progress>stringPATH</save-progress> 			// optional: but make no sense if display progress is not there
+     * </train-classifier>
+     *
+     * @param element the node of the XML directly
+     */
+    public void fileNameBased(Element element) throws IOException {
+
+        /***********************************************************************************************
+         * PARSE ELEMENT FROM XML
+         **********************************************************************************************/
+
+        // Fetching classifier
+        String ref = readAttribute(element, "ref");
+        Classifier classifier = script.classifiers.get(ref);
+        nbLayers = classifier.getNumLayers();
+
+        // Fetching an optional parameter who specifies how many parameters should be trained from the top
+        if (element.getChild("numLayers") != null) {
+            nbLayers = Integer.parseInt(readElement(element, "numLayers"));
+        }
+
+        // Fetching datasets - this must be a PATH
+        File dsdir = new File(readElement(element, "dataset"));
+        if (!dsdir.isDirectory()) {
+            throw new RuntimeException("As there is the tag <filenamebased/>, <dataset> MUST contain a string with the path of the dataset (and not the reference of a dataset previously loaded)");
+        }
+
+        // Parsing parameters of training
+        this.SAMPLES = Integer.parseInt(readElement(element, "samples"));
+        this.MAXTIME = Integer.parseInt(readElement(element, "max-time"));
+        if (MAXTIME == 0) {
+            MAXTIME = Integer.MAX_VALUE;
+        }
+
+        // Testing if tracer should be init
+        tracer = null;
+        if (element.getChild("save-progress") != null) {
+            try {
+                // Expected points on the plots are the number of expected epochs.
+                int expectedSamples = SAMPLES;
+                // Tracer init
+                tracer = new Tracer(classifier.name() + " training error", "Epoch", "Error", expectedSamples, element.getChild("display-progress") != null);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // Check whether dataset should be sub sampled
+        int dsSubSample = 1;
+        if (element.getChild("subsampledataset") != null) {
+            dsSubSample = Integer.parseInt(readElement(element, "subsampledataset"));
+        }
+
+        // Time of start of the execution, necessary to stop after max time has reached
+        long startTime = System.currentTimeMillis();
+
+        // Counter that keeps track on how many samples have been already executed
+        int sample = 0;
+
+        // Logging purpose only variable
+        int loggingProgress = 1;
+
+        // Counter of epochs (logging purpose only)
+        int epoch = 0;
+
+        // Epoch-wise error
+        double err;
+        int epochSize;
+
+        // Batch handling
+        int batch = 0;
+
+        /***********************************************************************************************
+         * LOAD DATASET WITH DATA BALANCING
+         **********************************************************************************************/
+
+        script.println("Loading dataset from path for <filenamebased/>");
+
+        /**
+         * This hashMap stores one arrayList per each new class found. In the arrayList
+         * are contained Datablock belonging to that class
+         */
+        HashMap<Integer, ArrayList<DataBlock>> data = new HashMap<>();
+        /**
+         * Final number of classes found in the picture
+         */
+        final int nbClasses;
+
+        // Getting file names on that folder
+        File[] listOfFiles = dsdir.listFiles();
+
+        // For each file listed
+        for (int i = 0; i < listOfFiles.length; i += dsSubSample) {
+            // Get correct class from file name
+            int correctClass = Character.getNumericValue(listOfFiles[i].getName().charAt(0));
+            // Store in the image in the appropriate ArrayList
+            if (!data.containsKey(correctClass)) {
+                data.put(correctClass, new ArrayList<>());
+            }
+            data.get(correctClass).add(new BiDataBlock(dsdir + "/" + listOfFiles[i].getName()));
+
+        }
+
+        script.println("Dataset loaded and processed in: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
+
+        nbClasses = data.size();
+
+        // Check that the size of the classifier is equal to the size of the image!
+        if ((classifier.getInputWidth() != data.get(0).get(0).getWidth()) ||
+                (classifier.getInputHeight() != data.get(0).get(0).getHeight())) {
+            throw new RuntimeException(
+                    "Classifier input size (" +
+                            classifier.getInputWidth() + "x" + classifier.getInputHeight() + ")" +
+                            " does not match images size (" +
+                            data.get(0).get(0).getWidth() + "x" + data.get(0).get(0).getHeight() + "!");
+        }
+
+        /***********************************************************************************************
+         * TRAIN THE CLASSIFIER
+         **********************************************************************************************/
+
+        script.println("\"Classifier starting training[" + ref + "] {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "}");
+
+        script.print("Progress[");
+
+        // Train the classifier until enough samples have been evaluated
+        while (sample < SAMPLES) {
+
+            // Epoch-wise error
+            err = 0;
+            epochSize = 0;
+
+            // Log every ~10% the progress of training
+            if ((sample * 10) / SAMPLES >= loggingProgress) {
+                if (loggingProgress > 1) {
+                    System.out.print(" ");
+                }
+                System.out.print(loggingProgress * 10 + "%");
+                loggingProgress = (sample * 10) / SAMPLES + 1;
+            }
+
+            // Iterate over all classes (data balancing)
+            for (int c = 0; c < nbClasses; c++) {
+
+                // Set input to classifier
+                classifier.setInput(data.get(c).get((int) (XMLScript.getRandom().nextDouble() * data.get(c).size())), 0, 0);
+
+                // Forward
+                classifier.compute();
+
+                // Set the expected values to 0 for all outputs neurons and 1 for the correct class
+                for (int j = 0; j < classifier.getOutputSize(); j++) {
+                    classifier.setExpected(j, (j == c) ? 1 : 0);
+                }
+
+                // Learning the classifier
+                err += classifier.backPropagate(nbLayers);
+
+                // Increase counters
+                sample++;
+                epochSize++;
+                batch++;
+
+                // If is the end of the mini-batch
+                if (batch >= BATCHSIZE) {
+                    batch = 0;
+                    // Update weights
+                    classifier.learn(nbLayers);
+                }
+
+                // Stop execution if MAXTIME reached
+                if (((int) (System.currentTimeMillis() - startTime) / 60000) >= MAXTIME) {
+                    // Complete the logging progress
+                    System.out.println("]");
+                    script.println("Maximum training time (" + MAXTIME + ") reached after " + epoch + " epochs");
+
+                    // Free memory
+                    data = null;
+                    System.gc();
+
+                    return;
+                }
+            }
+
+
+            if (tracer != null) {
+                // Log the error at each epoch
+                tracer.addPoint(sample, err / epochSize);
+            }
+
+            // Log the number of epochs
+            epoch++;
+
+        }
+
+        // Complete the logging progress
+        System.out.println(" 100%]");
+
+        script.println("Training time = " + (int) (System.currentTimeMillis() - startTime) / 1000.0);
+        script.println("Finish training classifier [" + ref + "]");
+
+        // If tracer has been used
+        if (tracer != null) {
+            // Add the tracks on the tracer
+            tracer.addRawData();
+            tracer.addCumulatedAverage();
+            tracer.addMovingAverage();
+            tracer.addMovingMedian();
+
+            // Show the plot
+            tracer.display();
+
+            // If required, save the plot on disk at the provided path
+            if (element.getChild("save-progress") != null) {
+                try {
+                    tracer.savePlot(readElement(element, "save-progress"));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // Free memory
+        data = null;
+        System.gc();
+
+    }
+
     @Override
     public String tagName() {
         return "train-classifier";
     }
 
-    /**
-     * This class is used for data balancing while training. It analyses a datablock
-     * and stores references to different pixels of different classes such that is possible
-     * to get them for training.
-     */
-    private class ImageAnalysis {
-
-        /**
-         * This hashMap stores one arrayList per each new class found. In the arrayList
-         * are contained pixels belonging to that class
-         */
-        private final HashMap<Integer, ArrayList<Pixel>> data = new HashMap<>();
-        /**
-         * Final number of classes found in the picture
-         */
-        public final int nbClasses;
-
-        /**
-         * Creates a image analysis
-         *
-         * @param gt         the images that need to be analysed
-         * @param classifier the classifier which is going to be trained with. Needed for handling
-         *                   the borders of the images and also the number of classes to be detected.
-         */
-        public ImageAnalysis(final DataBlock gt, final Classifier classifier) {
-            long startTime = System.currentTimeMillis();
-
-            // Init of the final field
-            this.nbClasses = classifier.getOutputSize();
-
-            /* Population of the data keeping in consideration to skip borders of image (because if
-             * we then center the input we want the input patch to be within the border of the image!
-             */
-            int index = gt.getDepth()-1;
-            for (int x = classifier.getInputWidth() / 2; x <= gt.getWidth() - classifier.getInputWidth(); x++) {
-                for (int y = classifier.getInputHeight() / 2; y <= gt.getHeight() - classifier.getInputHeight(); y++) {
-                    int correctClass = Math.round((gt.getValues(x, y)[index] + 1) * 255 / 2.0f);
-                    if (!data.containsKey(correctClass)) {
-                        data.put(correctClass, new ArrayList<>());
-                    }
-                    data.get(correctClass).add(new Pixel(x, y));
-                }
-            }
-
-            // Log creation
-            script.println("ImageAnalysis created in: " + (int) (System.currentTimeMillis() - startTime) / 1000.0 + " sec " + this.toString());
-            script.println("Number of elements:");
-            for (int key : data.keySet()) {
-                script.println("  class "+key+": "+data.get(key).size());
-            }
-        }
-
-        /**
-         * Sub-sample (or super sumple if there are too few!) the list to a specific total amount of pixels. This is done to prevent storing in memory
-         * millions of pixels unnecessarily
-         *
-         * @param samples the TOTAL amount of sample that this object will store, equally divided among classes
-         */
-        public void subSample(int samples) {
-            long startTime = System.currentTimeMillis();
-
-            // For each class
-            for (int c = 0; c < nbClasses; c++) {
-                // Init the new array list for storing the sub sampled points
-                ArrayList<Pixel> ssp = new ArrayList<>();
-
-                // Populate the sub sampled points with random representative until we have enough
-                for (int i = 0; i < samples / nbClasses; i++) {
-                    ssp.add(getRandomRepresentative(c));
-                }
-
-                // Remove old array list and set the new one
-                data.remove(c);
-                data.put(c, ssp);
-            }
-            System.gc();
-
-            // Log sub sampling
-            script.println("ImageAnalysis sub-sampled in: " + (int) (System.currentTimeMillis() - startTime) / 1000.0 + " sec " + this.toString());
-
-        }
-
-        /**
-         * Select, return the a random pixel on the list.
-         *
-         * @param c the class of which the representative will be chosen
-         * @return the next pixel on the list
-         */
-        public Pixel getRandomRepresentative(int c) {
-            return (data.get(c) != null) ? data.get(c).get((int) (Math.random() * data.get(c).size())) : null;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder s = new StringBuilder();
-            s.append("[");
-            for (int i = 0; i < nbClasses; i++) {
-                s.append((data.get(i) != null) ? data.get(i).size() : 0);
-                if (i < nbClasses - 1) {
-                    s.append(",");
-                }
-
-            }
-            s.append("]");
-            return s.toString();
-        }
-
-
-    }
-
-    /**
-     * Support class for easier data structure modelling
-     */
-    private class Pixel {
-        /**
-         * X coordinate of the pixel
-         */
-        public final int x;
-        /**
-         * Y coordinate of the pixel
-         */
-        public final int y;
-
-        public Pixel(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder s = new StringBuilder();
-            s.append("p[");
-            s.append(x);
-            s.append(",");
-            s.append(y);
-            s.append("]");
-            return s.toString();
-        }
-    }
 }

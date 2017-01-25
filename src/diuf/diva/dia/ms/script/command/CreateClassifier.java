@@ -45,6 +45,10 @@ import org.jdom2.Element;
  */
 public class CreateClassifier extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public CreateClassifier(XMLScript script) {
         super(script);
     }
@@ -97,21 +101,41 @@ public class CreateClassifier extends AbstractCommand {
         }
 
         // Parsing neurons
-        String nc = readElement(element, "neurons");
-        String[] neuronsS = nc.split(",");
-        int[] neurons = new int[neuronsS.length];
-
-        script.println("Creating classifier with " + neuronsS.length + " hidden layers:");
-
-        for (int n = 0; n < neuronsS.length; n++) {
-            neurons[n] = Integer.parseInt(neuronsS[n]);
-            script.println(" " + neurons[n] + " neurons in layer " + n);
+        int[] neurons = new int[0];
+        // Only add extra neurons if the field is not empty
+        if (element.getChild("neurons") != null) {
+            try {
+                String nc = readElement(element, "neurons");
+                String[] neuronsS = nc.split(",");
+                neurons = new int[neuronsS.length];
+                script.println("Creating classifier with " + neuronsS.length + " hidden layers:");
+                for (int n = 0; n < neuronsS.length; n++) {
+                    neurons[n] = Integer.parseInt(neuronsS[n]);
+                    script.println(" " + neurons[n] + " neurons in layer " + n);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("No additional neurons");
         }
 
         // Number of output classes
         int nbClasses = Integer.parseInt(readElement(element, "classes"));
 
         script.println(" " + nbClasses + " neurons in the output layer");
+
+        // Parse the 'layer' text
+        String layerClassName = "NeuralLayer";
+        if (element.getChild("layer") != null) {
+            layerClassName = readElement(element, "layer");
+        }
+
+        // Parse the 'ae' text
+        String aeClassName = "StandardAutoEncoder";
+        if (element.getChild("ae") != null) {
+            aeClassName = readElement(element, "ae");
+        }
 
         // Creating the classifier
         return new AEClassifier(scae, nbClasses, neurons);
@@ -178,5 +202,5 @@ public class CreateClassifier extends AbstractCommand {
     public String tagName() {
         return "create-classifier";
     }
-    
+
 }

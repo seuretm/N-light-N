@@ -37,10 +37,19 @@ import org.jdom2.Element;
  */
 public class AddLayer extends CreateStackedAE {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public AddLayer(XMLScript script) {
         super(script);
     }
     
+    /**
+     * @param id of an SCAE
+     * @return the SCAE or throws an error if not found
+     */
+    @Override
     protected SCAE getAE(String id) {
         SCAE ae = script.scae.get(id);
         if (ae==null) {
@@ -49,6 +58,12 @@ public class AddLayer extends CreateStackedAE {
         return ae;
     }
     
+    /**
+     * Returns the ID referenced by an element.
+     * @param e element
+     * @return an ID
+     */
+    @Override
     protected String readId(Element e) {
         return readAttribute(e, "ref");
     }

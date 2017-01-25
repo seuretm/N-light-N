@@ -46,8 +46,15 @@ public class StandardAutoEncoder extends AutoEncoder {
      * @param inputHeight input height
      * @param inputDepth  input depth
      * @param outputDepth output depth
+     * @param layerClassName what kind of layer should be used for encoder and decoder
      */
-    public StandardAutoEncoder(int inputWidth, int inputHeight, int inputDepth, int outputDepth, String layerClassName) {
+    public StandardAutoEncoder(
+            int inputWidth,
+            int inputHeight,
+            int inputDepth,
+            int outputDepth,
+            String layerClassName
+    ) {
         this(inputWidth, inputHeight, inputDepth, outputDepth, null, null, null, null, layerClassName, layerClassName);
     }
     
@@ -61,8 +68,26 @@ public class StandardAutoEncoder extends AutoEncoder {
      * @param encoderClassName name of the encoder's class, without package name
      * @param decoderClassName name of the decoder's class, without package name
      */
-    public StandardAutoEncoder(int inputWidth, int inputHeight, int inputDepth, int outputDepth, String encoderClassName, String decoderClassName) {
-        this(inputWidth, inputHeight, inputDepth, outputDepth, null, null, null, null, encoderClassName, decoderClassName);
+    public StandardAutoEncoder(
+            int inputWidth,
+            int inputHeight,
+            int inputDepth,
+            int outputDepth,
+            String encoderClassName,
+            String decoderClassName
+    ) {
+        this(
+                inputWidth,
+                inputHeight,
+                inputDepth,
+                outputDepth,
+                null,
+                null,
+                null,
+                null,
+                encoderClassName,
+                decoderClassName
+        );
     }
 
     /**
@@ -101,20 +126,38 @@ public class StandardAutoEncoder extends AutoEncoder {
             Class dc = Class.forName("diuf.diva.dia.ms.ml.layer." + decClassName);
 
             // Setting the encoder
-            setEncoder((Layer) ec.getDeclaredConstructor(float[].class, int.class, int.class, float[][].class, float[].class).newInstance(
-                    null,
-                    inputWidth * inputHeight * inputDepth,
-                    outputDepth,
-                    encoderWeight,
-                    encoderBias));
+            setEncoder(
+                    (Layer) ec.getDeclaredConstructor(
+                            float[].class,
+                            int.class,
+                            int.class,
+                            float[][].class,
+                            float[].class
+                    ).newInstance(
+                            null,
+                            inputWidth * inputHeight * inputDepth,
+                            outputDepth,
+                            encoderWeight,
+                            encoderBias
+                    )
+            );
 
             // Setting the decoder
-            setDecoder((Layer) dc.getDeclaredConstructor(float[].class, int.class, int.class, float[][].class, float[].class).newInstance(
+            setDecoder(
+                    (Layer) dc.getDeclaredConstructor(
+                            float[].class,
+                            int.class,
+                            int.class,
+                            float[][].class,
+                            float[].class
+                    ).newInstance(
                     null,
                     outputDepth,
                     inputWidth * inputHeight * inputDepth,
                     decoderWeight,
-                    decoderBias));
+                            decoderBias
+                    )
+            );
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -147,18 +190,17 @@ public class StandardAutoEncoder extends AutoEncoder {
         standardAutoEncoder.setInput(input, inputX, inputY);
 
         // Set output
-        standardAutoEncoder.setOutput(output, outputX, outputY);
+        standardAutoEncoder.setOutput(output, 0, 0);
 
         // Set previous error if not null
         if (prevErr != null) {
             standardAutoEncoder.setPrevError(prevErr);
         }
 
-        /* If erro            setDecoder((Layer) c.getDeclaredConstructor(float[].class, int.class, int.class, float[][].class, float[].class).newInstance(
-r has not the same size of output, it means it was not used before.
+        /* If error has not the same size of output, it means it was not used before.
          * Hence we do not set it. It is clear that one has to set the error manually after
          */
-        if (output.getWidth() == error.getWidth() && output.getHeight() == error.getHeight()) {
+        if (output.getWidth() == error.getWidth() && output.getHeight() == error.getHeight() && output.getDepth()==error.getDepth()) {
             standardAutoEncoder.setError(error);
         }
 

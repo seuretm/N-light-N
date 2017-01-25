@@ -122,7 +122,10 @@ public abstract class DataBlockDisplay extends JFrame {
     protected void updateGrayscale(DataBlock db) {
         for (int x=0; x<db.getWidth(); x++) {
             for (int y=0; y<db.getHeight(); y++) {
-                int g = (int) (255 * (db.getValue(0, x, y) + 1) / 2);
+                float v = (db.getValue(0, x, y) + 1) / 2;
+                v = (v<0) ? 0 : v;
+                v = (v>1) ? 1 : v;
+                int g = (int) (255 * v);
                 bi.setRGB(x, y, g | (g<<8) | (g<<16));
             }
         }
@@ -135,10 +138,22 @@ public abstract class DataBlockDisplay extends JFrame {
     protected void updateColor(DataBlock db) {
         for (int x=0; x<db.getWidth(); x++) {
             for (int y=0; y<db.getHeight(); y++) {
-                int r = (int) (255 * (db.getValue(0, x, y) + 1) / 2);
-                int g = (int) (255 * (db.getValue(1, x, y) + 1) / 2);
-                int b = (int) (255 * (db.getValue(2, x, y) + 1) / 2);
-                bi.setRGB(x, y, r | (g<<8) | (b<<16));
+                float v = (db.getValue(0, x, y) + 1) / 2;
+                v = (v<0) ? 0 : v;
+                v = (v>1) ? 1 : v;
+                int r = (int) (255 * v);
+                
+                v = (db.getValue(1, x, y) + 1) / 2;
+                v = (v<0) ? 0 : v;
+                v = (v>1) ? 1 : v;
+                int g = (int) (255 * v);
+                
+                v = (db.getValue(2, x, y) + 1) / 2;
+                v = (v<0) ? 0 : v;
+                v = (v>1) ? 1 : v;
+                int b = (int) (255 * v);
+                
+                bi.setRGB(x, y, (r<<16) | (g<<8) | b);
             }
         }
     }

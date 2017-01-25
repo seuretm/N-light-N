@@ -171,6 +171,18 @@ public class DataBlock implements Serializable, Cloneable {
     public int getDepth() {
         return depth;
     }
+    
+    /**
+     * Increase the value, and add 1 to the weight.
+     * @param z coordinate - channel in images
+     * @param x coordinate
+     * @param y coordinate
+     * @param v a float
+     */
+    public void addValue(int z, int x, int y, float v) {
+        value[x][y][z] += v;
+        weight[x][y]+=1;
+    }
 
     /**
      * Returns a stored value.
@@ -473,7 +485,13 @@ public class DataBlock implements Serializable, Cloneable {
      * @throws IOException if the file cannot be written to
      */
     public void save(String fname) throws IOException {
-        ObjectOutputStream oos = new ObjectOutputStream(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(fname))));
+        ObjectOutputStream oos = new ObjectOutputStream(
+                new DataOutputStream(
+                        new BufferedOutputStream(
+                                new FileOutputStream(fname)
+                        )
+                )
+        );
         save(oos);
         oos.flush();
         oos.close();

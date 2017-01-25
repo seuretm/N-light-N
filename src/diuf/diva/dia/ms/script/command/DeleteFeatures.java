@@ -41,6 +41,10 @@ import org.jdom2.Element;
  */
 public class DeleteFeatures extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public DeleteFeatures(XMLScript script) {
         super(script);
     }

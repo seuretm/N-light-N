@@ -3,13 +3,13 @@ package diuf.diva.dia.ms.util;
 import Jama.Matrix;
 import com.mkobos.pca_transform.Assume;
 import com.mkobos.pca_transform.covmatrixevd.CovarianceMatrixEVDCalculator;
+import com.mkobos.pca_transform.covmatrixevd.EVDBased;
 import com.mkobos.pca_transform.covmatrixevd.EVDResult;
 import com.mkobos.pca_transform.covmatrixevd.SVDBased;
 import diuf.diva.dia.ms.util.misc.EVDT;
 
 /**
- * This is a class for doing PCAs, highly
- * based on https://github.com/mkobos/pca_transform
+ * This is a class for doing PCAs, based on https://github.com/mkobos/pca_transform
  * @author Mateusz Kobos, Michele Alberti, Mathias Seuret
  */
 public final class PCA {
@@ -72,14 +72,6 @@ public final class PCA {
             );
         }
 
-        for (int r = 0; r < data.getRowDimension(); r++) {
-            for (int c = 0; c < data.getColumnDimension(); c++) {
-                if (data.get(r, c) != data.get(r, c)) {
-                    throw new RuntimeException("what the hell");
-                }
-            }
-        }
-
         // Get the number of input dimensions.
         this.means = getColumnsMeans(data);
 
@@ -118,7 +110,6 @@ public final class PCA {
      * @return transformed data
      */
     public Matrix transform(Matrix data) {
-        //TODO shall we shift the data of their own means or of the trainig data means?!
         return data.times(W);
     }
 
@@ -174,6 +165,16 @@ public final class PCA {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Public static
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Returns the covariance matrix of the data
+     *
+     * @param m data to compute the covariance matrix on
+     * @return covariance matrix
+     */
+    public static Matrix getCovarianceMatrix(Matrix m) {
+        return EVDBased.calculateCovarianceMatrixOfCenteredData(centerMatrix(m));
+    }
 
     /**
      * Subtract a value to each column

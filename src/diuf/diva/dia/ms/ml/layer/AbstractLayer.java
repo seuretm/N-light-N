@@ -26,6 +26,8 @@
 
 package diuf.diva.dia.ms.ml.layer;
 
+import diuf.diva.dia.ms.script.XMLScript;
+
 import java.io.*;
 
 /**
@@ -133,14 +135,22 @@ public abstract class AbstractLayer implements Layer, Serializable {
             this.weight = copy(weight);
             if (weight.length != inputSize || weight[0].length != outputSize) {
                 throw new IllegalArgumentException(
-                        "bad input weight size: " + weight.length + "x" + weight[0].length + ", expected " + inputSize + "x" + outputSize
+                        "bad input weight size: "
+                                + weight.length
+                                + "x"
+                                + weight[0].length
+                                + ", expected "
+                                + inputSize
+                                + "x"
+                                + outputSize
                 );
             }
         } else {
             this.weight = new float[inputSize][outputSize];
             for (int i = 0; i < inputSize; i++) {
                 for (int o = 0; o < outputSize; o++) {
-                    this.weight[i][o] = (float) ((1 - 2 * Math.random()) / Math.sqrt(inputSize));
+                    //TODO: put the random numbers generator somewhere else than in XMLSCript
+                    this.weight[i][o] = (float) ((1 - 2 * XMLScript.getRandom().nextDouble()) / Math.sqrt(inputSize));
                 }
             }
         }
@@ -190,6 +200,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * @return the dimension of the input
      */
+    @Override
     public int getInputSize() {
         return inputSize;
     }
@@ -207,8 +218,18 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param in new array
      */
+    @Override
     public void setInputArray(float[] in) {
         input = in;
+    }
+
+    /**
+     * Changes the learning speed.
+     * @param s new learning speed.
+     */
+    @Override
+    public void setLearningSpeed(float s) {
+        this.learningSpeed = s;
     }
 
     /**
@@ -216,6 +237,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param num input number
      */
+    @Override
     public void deleteInput(int num) {
         float[][] nWeight = new float[inputSize - 1][outputSize];
 
@@ -235,6 +257,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * Computes the output of the layer.
      */
+    @Override
     public abstract void compute();
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -244,11 +267,13 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * Applies the gradient descent.
      */
+    @Override
     public abstract void learn();
 
     /**
      * Applies the backpropagation if needed.
      */
+    @Override
     public abstract float backPropagate();
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,6 +293,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param out new output array
      */
+    @Override
     public void setOutputArray(float[] out) {
         output = out;
     }
@@ -275,6 +301,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * @return the number of outputs (neurons)
      */
+    @Override
     public int getOutputSize() {
         return outputSize;
     }
@@ -284,6 +311,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param num output number
      */
+    @Override
     public void deleteOutput(int num) {
         float[][] nWeight = new float[inputSize][outputSize - 1];
         float[] nBias = new float[outputSize - 1];
@@ -309,6 +337,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * @return the error array
      */
+    @Override
     public float[] getError() {
         return err;
     }
@@ -319,6 +348,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param err an array
      */
+    @Override
     public void setError(float[] err) {
         this.err = err;
     }
@@ -336,6 +366,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * Clears the error
      */
+    @Override
     public void clearError() {
         for (int i = 0; i < err.length; i++) {
             err[i] = 0;
@@ -355,6 +386,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param e typically the error of a previous layer
      */
+    @Override
     public void setPreviousError(float[] e) {
         prevErr = e;
     }
@@ -362,6 +394,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * Clears previous error
      */
+    @Override
     public void clearPreviousError() {
         if (prevErr == null) {
             return;
@@ -377,6 +410,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
      * @param o output number
      * @param v expected value
      */
+    @Override
     public void setExpected(int o, float v) {
         float e = output[o] - v;
         addError(o, e);
@@ -398,11 +432,21 @@ public abstract class AbstractLayer implements Layer, Serializable {
      *
      * @param w the new weight matrix. The size must correspond to: inputSize*outputSize
      */
+    @Override
     public void setWeights(float[][] w) {
         if (w != null) {
             // Verify sizes
             if (w.length != inputSize || w[0].length != outputSize) {
-                throw new IllegalArgumentException("bad input weight size: " + w.length + "x" + w[0].length + ", expected " + inputSize + "x" + outputSize);
+                throw new IllegalArgumentException(
+                        "bad input weight size: "
+                                + w.length
+                                + "x"
+                                + w[0].length
+                                + ", expected "
+                                + inputSize
+                                + "x"
+                                + outputSize
+                );
             }
             // Store new values
             weight = copy(w);
@@ -415,13 +459,16 @@ public abstract class AbstractLayer implements Layer, Serializable {
     /**
      * @return the bias array
      */
+    @Override
     public float[] getBias() {
         return bias;
     }
 
     /**
      * Set the bias array
+     * @param b new bias
      */
+    @Override
     public void setBias(float[] b) {
         if (b != null) {
             // Verify sizes

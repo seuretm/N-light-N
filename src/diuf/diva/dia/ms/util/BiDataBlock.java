@@ -24,11 +24,6 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ******************************************************************************/
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package diuf.diva.dia.ms.util;
 
 import javax.imageio.ImageIO;
@@ -51,11 +46,19 @@ public class BiDataBlock extends DataBlock {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     ///////////////////////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Loads a BiDataBlock from an image file.
+     * @param fName file name
+     * @throws IOException if the image cannot be read
+     */
     public BiDataBlock(String fName) throws IOException {
         this(ImageIO.read(new File(fName)));
     }
     
+    /**
+     * Creates a BiDataBlock from a buffered image.
+     * @param bi non-null reference to a BufferedImage
+     */
     public BiDataBlock(BufferedImage bi) {
         super(bi.getWidth(), bi.getHeight());
         this.bi = bi;
@@ -117,6 +120,7 @@ public class BiDataBlock extends DataBlock {
         return new BiDataBlock(new BufferedImage(cm, bi.copyData(null), cm.isAlphaPremultiplied(), null));
     }
 
+    @Override
     public void clear() {
         for (int x = 0; x < getWidth(); x++) {
             for (int y = 0; y < getHeight(); y++) {

@@ -29,10 +29,16 @@ package diuf.diva.dia.ms.script.command;
 import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 import diuf.diva.dia.ms.script.XMLScript;
 import diuf.diva.dia.ms.util.*;
+import diuf.diva.dia.ms.util.misc.ImageAnalysis;
+import diuf.diva.dia.ms.util.misc.Pixel;
 import org.jdom2.Element;
 
+import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Random;
 
 /**
@@ -43,18 +49,27 @@ import java.util.Random;
  *
  *  <train-scae ref="myScae">
  *      <dataset>ds</dataset>
+ *      <groundTruth>gt</groundTruth>                       // optional: only for supervised AE
  *      <samples>SAMPLES</samples>
  *      <max-time>MAXTIME</max-time>
- *      <display-features>200</display-features> 			// optional
- *      <display-recoding>stringPATH</display-recoding> 	// optional
- *      <display-progress>200</display-progress> 			// optional
- *      <save-progress>stringPATH</save-progress> 			// optional: but make no sense if display progress is not there
+ *      <!-- optional -->
+ *      <display-features>200</display-features>
+ *      <!-- optional -->
+ *      <display-recoding>stringPATH</display-recoding>
+ *      <!-- optional -->
+ *      <display-progress>200</display-progress>
+ *      <!-- optional, but needs display-progress -->
+ *      <save-progress>stringPATH</save-progress>
  *  </train-scae>
  *
  * @author Mathias Seuret, Michele Alberti
  */
 public class TrainSCAE extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public TrainSCAE(XMLScript script) {
         super(script);
     }
@@ -94,8 +109,14 @@ public class TrainSCAE extends AbstractCommand {
         Dataset ds = script.datasets.get(dataset);
         NoisyDataset nds = script.noisyDataSets.get(dataset);
 
-        if (ds == null && nds == null) {
+        if (ds == null && nds == null && element.getChild("filenamebased") == null) {
             error("cannot find dataset " + dataset);
+        }
+
+        // Parse the (optional, used only in supervised) ground truth dataset
+        Dataset gt = null;
+        if (element.getChild("groundTruth") != null) {
+            gt = script.datasets.get(readElement(element, "groundTruth"));
         }
 
         // Parse parameter for training
@@ -127,7 +148,13 @@ public class TrainSCAE extends AbstractCommand {
                 } else {
                     expectedSamples = SAMPLES / nds.clean.size();
                 }
-                tracer = new Tracer("SCAE training error", "Epoch", "Error", expectedSamples, element.getChild("display-progress") != null);
+                tracer = new Tracer(
+                        "SCAE training error",
+                        "Epoch",
+                        "Error",
+                        expectedSamples,
+                        element.getChild("display-progress") != null
+                );
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -153,10 +180,6 @@ public class TrainSCAE extends AbstractCommand {
             recodingDisplay = new RecodingDisplay(imgDB, scae);
         }
 
-        // Training an AE
-        System.out.print(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + ": " +
-                "SCAE Starting training {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "} Progress[");
-
         // Return value of the function
         String returnValue = null;
 
@@ -166,12 +189,25 @@ public class TrainSCAE extends AbstractCommand {
             for (DataBlock db : ds) {
                 if (db.getWidth() < scae.getInputPatchWidth() || db.getHeight() < scae.getInputPatchHeight()) {
                     error(
-                            "an image of the dataset is smaller than the input of the autoencoder:\n" +
-                                    "[" + db.getWidth() + "x" + db.getHeight() + "]<[" + scae.getInputPatchWidth() + "x" + scae.getInputPatchHeight() + "]"
+                            "an image of the dataset is smaller than the input of the autoencoder:\n"
+                                    + "["
+                                    + db.getWidth()
+                                    + "x"
+                                    + db.getHeight()
+                                    + "]<["
+                                    + scae.getInputPatchWidth()
+                                    + "x"
+                                    + scae.getInputPatchHeight()
+                                    + "]"
                     );
                 }
             }
-            returnValue = String.valueOf(trainAutoencoding(scae, ds, featureDisplay, recodingDisplay));
+
+            if (gt != null) {
+                returnValue = String.valueOf(trainSupervisedAutoEncoder(scae, ds, gt, featureDisplay, recodingDisplay));
+            } else {
+                returnValue = String.valueOf(trainAutoencoder(scae, ds, featureDisplay, recodingDisplay));
+            }
         }
 
         // Query the noisy dataset
@@ -180,12 +216,28 @@ public class TrainSCAE extends AbstractCommand {
             for (DataBlock db : nds.clean) {
                 if (db.getWidth() < scae.getInputPatchWidth() || db.getHeight() < scae.getInputPatchHeight()) {
                     error(
-                            "an image of the dataset is smaller than the input of the autoencoder:\n" +
-                                    "[" + db.getWidth() + "x" + db.getHeight() + "] < [" + scae.getInputPatchWidth() + "x" + scae.getInputPatchHeight() + "]"
+                            "an image of the dataset is smaller than the input of the autoencoder:\n"
+                                    + "["
+                                    + db.getWidth()
+                                    + "x"
+                                    + db.getHeight()
+                                    + "] < ["
+                                    + scae.getInputPatchWidth()
+                                    + "x"
+                                    + scae.getInputPatchHeight()
+                                    + "]"
                     );
                 }
             }
-            returnValue = String.valueOf(trainDenoising(scae, nds, featureDisplay, recodingDisplay));
+            returnValue = String.valueOf(trainDenoisingAutoEncoder(scae, nds, featureDisplay, recodingDisplay));
+        }
+
+        /** If the tag </filenamebased> is present
+         *  call the relative method. Otherwise go on
+         *  with typical training.
+         */
+        if (element.getChild("filenamebased") != null) {
+            returnValue = String.valueOf(trainSupervisedFileNameBasedAutoEncoder(scae, element, featureDisplay, recodingDisplay));
         }
 
         // If a result has been computed
@@ -214,6 +266,9 @@ public class TrainSCAE extends AbstractCommand {
         return "";
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // AUTO ENCODER
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     /**
      * Train an auto encoder
      *
@@ -223,7 +278,7 @@ public class TrainSCAE extends AbstractCommand {
      * @param rd   the recoding display object (may be null!)
      * @return cumulated error of the training
      */
-    private double trainAutoencoding(SCAE scae, Dataset ds, FeatureDisplay fd, RecodingDisplay rd) {
+    private double trainAutoencoder(SCAE scae, Dataset ds, FeatureDisplay fd, RecodingDisplay rd) {
 
         // Time of start of the execution, necessary to stop after max time has reached
         long startTime = System.currentTimeMillis();
@@ -242,9 +297,13 @@ public class TrainSCAE extends AbstractCommand {
 
         // Epoch counter
         int epoch = 0;
-        
+
         // Random numbers generator
-        Random rand = new Random();
+        Random rand = XMLScript.getRandom();
+
+        // Training an AE
+        System.out.print(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + ": " +
+                "SCAE Starting training {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "} Progress[");
 
         // Iterate until enough samples has been evaluated
         while (sample <= SAMPLES) {
@@ -268,8 +327,15 @@ public class TrainSCAE extends AbstractCommand {
             // At each epoch we iterate over all images in the dataset
             for (DataBlock db : ds) {
 
-                int x = rand.nextInt(db.getWidth() - scae.getInputPatchWidth());
-                int y = rand.nextInt(db.getHeight() - scae.getInputPatchHeight());
+                int x = 0;
+                int y = 0;
+
+                if (db.getWidth() - scae.getInputPatchWidth() > 0) {
+                    x = rand.nextInt(db.getWidth() - scae.getInputPatchWidth());
+                }
+                if (db.getHeight()>scae.getInputPatchHeight()) {
+                    y = rand.nextInt(db.getHeight() - scae.getInputPatchHeight());
+                }
 
                 // Set input
                 scae.setInput(db, x, y);
@@ -310,7 +376,8 @@ public class TrainSCAE extends AbstractCommand {
                 // Complete the logging progress
                 System.out.println("]");
                 script.println("Maximum training time (" + MAXTIME + ") reached after " + epoch + " epochs");
-                break;
+                scae.trainingDone();
+                return cumulatedError;
             }
 
         }
@@ -325,6 +392,323 @@ public class TrainSCAE extends AbstractCommand {
         return cumulatedError;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // SUPERVISED AUTO ENCODER
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * Train an auto encoder which requires a supervised training type.
+     * For example, LDAAutoEncoder needs class labels for his initial training.
+     *
+     * @param scae the scae to be trained
+     * @param dsImg the dataset to train that will be used to train the scae
+     * @param dsGt the dataset ground truth used to extract the labels of training data
+     * @param fd the feature display object (may be null!)
+     * @param rd the recoding display object (may be null!)
+     * @return cumulated error of the training
+     */
+    private double trainSupervisedAutoEncoder(SCAE scae, Dataset dsImg, Dataset dsGt, FeatureDisplay fd, RecodingDisplay rd) {
+
+        // Time of start of the execution, necessary to stop after max time has reached
+        long startTime = System.currentTimeMillis();
+
+        // Number of samples already evaluated
+        int sample = 0;
+
+        // Logging purpose only variable
+        int loggingProgress = 1;
+
+        // Counter of epochs (logging purpose only)
+        int epoch = 0;
+
+        // Epoch-wise error
+        double err;
+        int epochSize;
+
+        // Cumulated training error
+        double cumulatedError = 0;
+
+        // ImageAnalysis init, for data balancing
+        ImageAnalysis[] imageAnalyses = new ImageAnalysis[dsImg.size()];
+        for (int i = 0; i < dsImg.size(); i++) {
+            imageAnalyses[i] = new ImageAnalysis(dsGt.get(i), scae.getInputPatchWidth(), scae.getInputPatchHeight());
+            imageAnalyses[i].subSample((int) Math.ceil(SAMPLES / dsImg.size()));
+        }
+
+        // Training an AE
+        System.out.print(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + ": " +
+                "SCAE Starting training {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "} Progress[");
+
+        // Iterate until enough samples has been evaluated
+        while (sample < SAMPLES) {
+
+            // Epoch-wise error
+            err = 0;
+            epochSize = 0;
+
+            // Log every ~10% the progress of training
+            if (((sample - 1) * 10) / SAMPLES >= loggingProgress) {
+                System.out.print(loggingProgress * 10 + "% ");
+                if (loggingProgress > 1) {
+                    System.out.print(" ");
+                }
+                loggingProgress = (sample * 10) / SAMPLES + 1;
+            }
+
+            // Iterate over all images in the dataset
+            for (int i = 0; i < dsImg.size(); i++) {
+                // For each image, take a sample out of each class -> data balancing
+                for (int c = 0; c < imageAnalyses[i].nbClasses; c++) {
+
+                    // Get next representative
+                    Pixel p = imageAnalyses[i].getNextRepresentative(c);
+
+                    // If pixel 'p' is null it means that this specific GT does not contain this class
+                    if (p == null) {
+                        continue;
+                    }
+
+                    // Set input
+                    scae.centerInput(dsImg.get(i), p.x, p.y);
+
+                    // Train
+                    err += scae.trainSupervised(c);
+
+                    // Increase counters
+                    sample++;
+                    epochSize++;
+
+                    // Stop execution if MAXTIME reached
+                    if (((int) (System.currentTimeMillis() - startTime) / 60000) >= MAXTIME) {
+                        // Complete the logging progress
+                        System.out.println("]");
+                        script.println("Maximum training time (" + MAXTIME + ") reached after " + epoch + " epochs");
+                        scae.trainingDone();
+                        return cumulatedError;
+                    }
+                }
+            }
+
+            // Add the new epoch point to the plot
+            if (tracer != null) {
+                // Log the error at each epoch
+                tracer.addPoint(sample, err / epochSize);
+            }
+
+            // Feature display update
+            if (fd != null && currTracerFeatures >= tracerFeaturesUpdateStep) {
+                fd.update();
+            }
+
+            // Recoding update
+            if (rd != null) {
+                rd.update();
+            }
+
+            // Log the number of epochs
+            epoch++;
+
+            // Update the cumulated error
+            cumulatedError += err;
+        }
+
+        // Complete the logging progress
+        if (sample >= SAMPLES) {
+            System.out.println("100%]");
+        }
+
+        scae.trainingDone();
+
+        return cumulatedError;
+    }
+
+    /**
+     * Train an auto encoder which requires a supervised training type.
+     * For example, LDAAutoEncoder needs class labels for his initial training.
+     * This method is designed to train a supervised AE with the GT on his filename.
+     * Examples of dataset like this are: CIFAR, MNIST.
+     *
+     * @param scae    the scae to be trained
+     * @param element the element of this tag node
+     * @param fd      the feature display object (may be null!)
+     * @param rd      the recoding display object (may be null!)
+     * @return cumulated error of the training
+     */
+    private double trainSupervisedFileNameBasedAutoEncoder(SCAE scae, Element element, FeatureDisplay fd, RecodingDisplay rd) throws IOException {
+
+        // Time of start of the execution, necessary to stop after max time has reached
+        long startTime = System.currentTimeMillis();
+
+        // Number of samples already evaluated
+        int sample = 0;
+
+        // Logging purpose only variable
+        int loggingProgress = 1;
+
+        // Counter of epochs (logging purpose only)
+        int epoch = 0;
+
+        // Epoch-wise error
+        double err;
+        int epochSize;
+
+        // Cumulated training error
+        double cumulatedError = 0;
+
+        // Random numbers generator
+        Random rand = new Random();
+
+        /***********************************************************************************************
+         * PARSE ELEMENT FROM XML
+         **********************************************************************************************/
+
+        // Fetching datasets - this must be a PATH
+        File dsdir = new File(readElement(element, "dataset"));
+        if (!dsdir.isDirectory()) {
+            throw new RuntimeException("As there is the tag <filenamebased/>, <dataset> MUST contain a string with the path of the dataset (and not the reference of a dataset previously loaded)");
+        }
+
+        // Check whether dataset should be sub sampled
+        int dsSubSample = 1;
+        if (element.getChild("subsampledataset") != null) {
+            dsSubSample = Integer.parseInt(readElement(element, "subsampledataset"));
+        }
+
+        /***********************************************************************************************
+         * LOAD DATASET WITH DATA BALANCING
+         **********************************************************************************************/
+
+        script.println("Loading dataset from path for <filenamebased/>");
+
+        /**
+         * This hashMap stores one arrayList per each new class found. In the arrayList
+         * are contained Datablock belonging to that class
+         */
+        HashMap<Integer, ArrayList<DataBlock>> data = new HashMap<>();
+        /**
+         * Final number of classes found in the picture
+         */
+        final int nbClasses;
+
+        // Getting file names on that folder
+        File[] listOfFiles = dsdir.listFiles();
+
+        // For each file listed
+        for (int i = 0; i < listOfFiles.length; i += dsSubSample) {
+            // Get correct class from file name
+            int correctClass = Character.getNumericValue(listOfFiles[i].getName().charAt(0));
+            // Store in the image in the appropriate ArrayList
+            if (!data.containsKey(correctClass)) {
+                data.put(correctClass, new ArrayList<>());
+            }
+
+            data.get(correctClass).add(new BiDataBlock(dsdir + "/" + listOfFiles[i].getName()));
+
+        }
+
+        script.println("Dataset loaded and processed in: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");
+
+        nbClasses = data.size();
+
+        /***********************************************************************************************
+         * TRAIN AE
+         **********************************************************************************************/
+        startTime = System.currentTimeMillis();
+
+        // Training an AE
+        System.out.print(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + ": " +
+                "SCAE Starting training {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "} Progress[");
+
+        // Iterate until enough samples has been evaluated
+        while (sample < SAMPLES) {
+
+            // Epoch-wise error
+            err = 0;
+            epochSize = 0;
+
+            // Log every ~10% the progress of training
+            if (((sample - 1) * 10) / SAMPLES >= loggingProgress) {
+                System.out.print(loggingProgress * 10 + "% ");
+                if (loggingProgress > 1) {
+                    System.out.print(" ");
+                }
+                loggingProgress = (sample * 10) / SAMPLES + 1;
+            }
+
+            // Iterate over all classes (data balancing)
+            for (int c = 0; c < nbClasses; c++) {
+
+                DataBlock db = data.get(c).get((int) (Math.random() * data.get(c).size()));
+
+                int x = 0;
+                int y = 0;
+
+                if (db.getWidth() - scae.getInputPatchWidth() > 0) {
+                    x = rand.nextInt(db.getWidth() - scae.getInputPatchWidth());
+                    y = rand.nextInt(db.getHeight() - scae.getInputPatchHeight());
+                }
+
+                // Set input
+                scae.setInput(db, x, y);
+
+                // Train
+                err += scae.trainSupervised(c);
+
+                // Increase counters
+                sample++;
+                epochSize++;
+
+                // Stop execution if MAXTIME reached
+                if (((int) (System.currentTimeMillis() - startTime) / 60000) >= MAXTIME) {
+                    // Complete the logging progress
+                    System.out.println("]");
+                    script.println("Maximum training time (" + MAXTIME + ") reached after " + epoch + " epochs");
+                    scae.trainingDone();
+                    return cumulatedError;
+                }
+
+            }
+
+            // Add the new epoch point to the plot
+            if (tracer != null) {
+                // Log the error at each epoch
+                tracer.addPoint(sample, err / epochSize);
+            }
+
+            // Feature display update
+            if (fd != null && currTracerFeatures >= tracerFeaturesUpdateStep) {
+                fd.update();
+            }
+
+            // Recoding update
+            if (rd != null) {
+                rd.update();
+            }
+
+            // Log the number of epochs
+            epoch++;
+
+            // Update the cumulated error
+            cumulatedError += err;
+        }
+
+        // Complete the logging progress
+        if (sample >= SAMPLES) {
+            System.out.println("100%]");
+        }
+
+        scae.trainingDone();
+
+        // Free memory
+        data = null;
+        System.gc();
+
+        return cumulatedError;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // DENOISING AUTO ENCODER
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Train a denoising auto encoder
      *
@@ -334,7 +718,7 @@ public class TrainSCAE extends AbstractCommand {
      * @param rd   the recoding display object (may be null!)
      * @return cumulated error of the training
      */
-    private double trainDenoising(SCAE scae, NoisyDataset ds, FeatureDisplay fd, RecodingDisplay rd) {
+    private double trainDenoisingAutoEncoder(SCAE scae, NoisyDataset ds, FeatureDisplay fd, RecodingDisplay rd) {
 
         // Time of start of the execution, necessary to stop after max time has reached
         long startTime = System.currentTimeMillis();
@@ -359,6 +743,10 @@ public class TrainSCAE extends AbstractCommand {
         for (int i=0; i<index.length; i++) {
             index[i] = i;
         }
+
+        // Training an AE
+        System.out.print(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + ": " +
+                "SCAE Starting training {maximum time:" + MAXTIME + "m, samples:" + SAMPLES + "} Progress[");
 
         // Iterate until enough samples has been evaluated
         while (sample < SAMPLES) {
@@ -430,7 +818,8 @@ public class TrainSCAE extends AbstractCommand {
             // Stop execution if MAXTIME reached
             if (((int) (System.currentTimeMillis() - startTime) / 60000) >= MAXTIME) {
                 script.println("Maximum training time (" + MAXTIME + ") reached after " + epoch + " epochs");
-                break;
+                scae.trainingDone();
+                return cumulatedError;
             }
 
         }

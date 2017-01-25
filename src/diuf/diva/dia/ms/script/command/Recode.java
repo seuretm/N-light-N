@@ -42,6 +42,10 @@ import java.io.IOException;
  */
 public class Recode extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public Recode(XMLScript script) {
         super(script);
     }
@@ -117,6 +121,13 @@ public class Recode extends AbstractCommand {
         return "recode";
     }
 
+    /**
+     * Encodes and decodes a datablock, and returns the result as a datablock.
+     * @param scae autoencoder to use
+     * @param db datablock to encode and decode
+     * @param colorspace to use for visualization
+     * @return the resulting datablock
+     */
     public static DataBlock recode(SCAE scae, DataBlock db, Image.Colorspace colorspace) {
         DataBlock res = new DataBlock(db.getWidth(), db.getHeight(), db.getDepth());
         for (int x = 0; x <= db.getWidth() - scae.getInputPatchWidth(); x += scae.getInputPatchWidth()) {

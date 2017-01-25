@@ -42,6 +42,10 @@ import org.jdom2.Element;
  */
 public class UnloadDataset extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public UnloadDataset(XMLScript script) {
         super(script);
     }

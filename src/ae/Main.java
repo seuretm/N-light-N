@@ -31,13 +31,16 @@ import java.io.IOException;
 
 /**
  * @author Mathias Seuret
+ * @throws Exception if anything goes wrong - there's no catch possible in this case
  */
 public class Main {
     /**
      * @param args the command line arguments
-     * @throws IOException if some images cannot be loaded
+     * @throws Exception if some images cannot be loaded
      */
     public static void main(String[] args) throws Exception {
+        //long n = Long.valueOf("FF", 16);
+        
         if (args.length==0) {
             throw new IllegalArgumentException(
                     "Syntax: java -jar thejarfile.jar xml-script.xml"
@@ -57,6 +60,7 @@ public class Main {
             } else {
                 System.out.printf("Run time: %d:%02d:%02d\n", (t/3600), ((t%3600)/60), (t%60));
             }
+            
             script.clearData();
             System.gc();
             try {
@@ -64,5 +68,5 @@ public class Main {
             } catch (InterruptedException ignored) {
             }
         }
-    }    
+    }
 }

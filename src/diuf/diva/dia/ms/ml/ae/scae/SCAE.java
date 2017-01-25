@@ -31,7 +31,6 @@ import diuf.diva.dia.ms.util.DataBlock;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Stacked Convolution Denoising AutoEncoder. Take note that the convolution
@@ -43,28 +42,19 @@ public class SCAE implements Serializable {
     /**
      * The different layers of the autoencoder.
      */
-    protected ArrayList<Convolution> stages = new ArrayList<>();
+    public ArrayList<Convolution> stages = new ArrayList<>();
     /**
      * A direct reference to the top-layer.
      */
-    protected Convolution top;
+    public Convolution top;
     /**
      * A direct reference to the base-layer.
      */
-    protected Convolution base;
+    public Convolution base;
     /**
      * The array in which the features are concatenated.
      */
-    protected float[] featureVector;
-    /**
-     * Defines which reconstruction score has to be used.
-     */
-    public static final int EUCLIDIAN_DISTANCE = 1;
-    public static final int EUCLIDIAN_DISTANCE_VAR = 1<<1;
-    public static final int SCALE_OFFSET_INVAR_DIST = 1<<2;
-    public static final int SCALE_OFFSET_INVAR_DIST_VAR = 1<<3;
-    public static final int NORMALIZED_CORRELATION = 1<<4;
-    public static final int NORMALIZED_CORRELATION_VAR = 1<<5;
+    public float[] featureVector;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -86,6 +76,14 @@ public class SCAE implements Serializable {
         );
         top  = stages.get(0);
         base = stages.get(0);
+        
+        setInput(
+                new DataBlock(
+                        getInputPatchWidth(),
+                        getInputPatchHeight(),
+                        getInputPatchDepth()
+                )
+        );
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,10 +101,12 @@ public class SCAE implements Serializable {
         return top.getOutput().getValues(0, 0);
     }
 
+    /**
+     * Decodes the layers one after another.
+     */
     public void backward() {
         for (int s = stages.size() - 1; s >= 0; s--) {
             stages.get(s).rebuildInput(s != 0);
-            //stages.get(s).rebuildInput(true);
         }
     }
 
@@ -115,23 +115,11 @@ public class SCAE implements Serializable {
      * denoising autoencoder.
      */
     public void grabClean() {
-        throw new UnsupportedOperationException("Denoising AE still to be implemented (conversion of DAENNUnit)");
-        /*
-        if (!top.getBase().isDenoising()) {
-            throw new IllegalStateException(
-                    "grabClean() can be used only when the top layer is a denoising autoencoder"
+        throw new UnsupportedOperationException(
+                "Denoising autoencoders needs to be reimplemented in this "
+                        + "new version of N-light-N."
             );
         }
-        if (stages.size()==1) {
-            base.getBase().getInputArray();
-        } else {
-            for (int s=0; s<stages.size()-1; s++) {
-                stages.get(s).encode();
-            }
-        }
-        ((DAENNUnit) top.getBase()).grabClean();
-        */
-    }
 
     /**
      * Trains the top-layer on the current sample.
@@ -142,23 +130,6 @@ public class SCAE implements Serializable {
             stages.get(s).encode();
         }
         return top.train();
-    }
-
-    /**
-     * Trains the top layer on the given sample.
-     * @param db data block
-     * @param posX position x of the sample
-     * @param posY position y of the sample
-     * @return some kind of error value
-     */
-    public float train(DataBlock db, int posX, int posY) {
-        setInput(db, posX, posY);
-        forward();
-        return top.train();
-    }
-
-    public void trainingDone() {
-        top.getBase().trainingDone();
     }
 
     /**
@@ -199,6 +170,30 @@ public class SCAE implements Serializable {
     }
 
     /**
+     * Train the supervised top layer - fails if this layer is not supervised
+     */
+    public float trainSupervised(int label) {
+        if (!top.getBase().isSupervised()) {
+            throw new IllegalStateException(
+                    "the top layer is not supervised, cannot use trainSupervised()"
+            );
+        }
+
+        for (int s = 0; s < stages.size() - 1; s++) {
+            stages.get(s).encode();
+        }
+
+        return top.train(label);
+    }
+
+    /**
+     * Called at the end of training. Useful for PCA and LDA especially.
+     */
+    public void trainingDone() {
+        top.getBase().trainingDone();
+    }
+
+    /**
      * Adds a layer to the SCAE. It requires not only an autoencoder, but
      * also to know which offset should be used when convolving this layer.
      * @param base autoencoder to use
@@ -227,6 +222,14 @@ public class SCAE implements Serializable {
             curr.resize(prev.getInputPatchWidth(), prev.getInputPatchHeight());
             prev.setInput(curr.getOutput());
         }
+
+        setInput(
+                new DataBlock(
+                        getInputPatchWidth(),
+                        getInputPatchHeight(),
+                        getInputPatchDepth()
+                )
+        );
 
     }
 
@@ -333,6 +336,13 @@ public class SCAE implements Serializable {
      */
     public Convolution getBase() {
         return base;
+    }
+
+    /***
+     * @return the top of the SCAE
+     */
+    public Convolution getTop() {
+        return top;
     }
 
     /**
@@ -454,128 +464,14 @@ public class SCAE implements Serializable {
         return out;
     }
 
+    /**
+     * Removes some features from the top-layer. Note that not all kinds of
+     * layer support this feature.
+     * @param number list of layers to remove, starting from 0
+     */
     public void deleteFeatures(int... number) {
         top.deleteFeatures(number);
         featureVector = null;
-    }
-
-    /**
-     * Encodes and decodes the input, and returns the mean Euclidian distance of
-     * the reconstructed pixels. The patches are offseted by the given values.
-     * @param input an input area
-     * @param offsetX not smaller than 1
-     * @param offsetY not smaller than 1
-     * @param rMask which evaluations should be used
-     * @return the mean Euclidian distance between input and reconstructed input
-     */
-    public ReconstructionScore getReconstructionScore(DataBlock input, int offsetX, int offsetY, int rMask) {
-        assert (offsetX>0);
-        assert (offsetY>0);
-        assert (rMask!=0);
-
-        DataBlock tmpInput = new DataBlock(getInputPatchWidth(), getInputPatchHeight(), getInputPatchDepth());
-
-        List<Float> eucl = new ArrayList<>();
-        List<Float> soid = new ArrayList<>();
-        List<Float> corr = new ArrayList<>();
-        for (int x = 0; x < input.getWidth() - getInputPatchWidth(); x += offsetX) {
-            for (int y = 0; y < input.getHeight() - getInputPatchHeight(); y+=offsetY) {
-                setInput(input, x, y);
-                forward();
-                setInput(tmpInput);
-                backward();
-                float[] val = base.getBase().getDecoded();
-                float[] exp = base.getBase().getInputArray();
-
-                eucl.add(euclideanDistance(val, exp));
-                soid.add(scaleOffsetInvarDist(val, exp));
-                corr.add(normalizedCorrelation(val, exp));
-            }
-        }
-        return new ReconstructionScore(eucl, soid, corr, rMask);
-    }
-
-    /**
-     * Computes the normalized correlation of two variables.
-     * @param x first variable
-     * @param y second variable
-     * @return normalized correlation
-     */
-    private float normalizedCorrelation(float[] x, float[] y) {
-        assert (x.length==y.length);
-
-        float sumX = 0;
-        float sumY = 0;
-        float n = x.length;
-
-        for (int i=0; i<x.length; i++) {
-            sumX += x[i];
-            sumY += y[i];
-        }
-        float meanX = sumX / n;
-        float meanY = sumY / n;
-
-        float sxy = 0;
-        float sx  = 0;
-        float sy  = 0;
-        for (int i=0; i<x.length; i++) {
-            sxy += (x[i]-meanX)*(y[i]-meanY);
-            sx  += (x[i]-meanX)*(x[i]-meanX);
-            sy  += (y[i]-meanY)*(y[i]-meanY);
-        }
-        sxy /= n;
-        sx = (float)Math.sqrt(sx/n);
-        sy = (float)Math.sqrt(sy/n);
-
-        return 1-(sxy / (1e-4f+Math.abs(sx*sy)));
-    }
-
-    /**
-     * Computes the Euclidean distance.
-     * @param a first point
-     * @param b second point
-     * @return Euclidean distance
-     */
-    private float euclideanDistance(float[] a, float[] b) {
-        assert (a.length==b.length);
-        float sum = 0.0f;
-        for (int i=0; i<a.length; i++) {
-            float d = a[i]-b[i];
-            sum += d * d;
-        }
-        return (float) Math.sqrt(sum);
-    }
-
-    /**
-     * Computes the SOID.
-     * @param a first variable
-     * @param b second variable
-     * @return the SOID
-     */
-    private float scaleOffsetInvarDist(float[] a, float[] b) {
-        assert (a.length==b.length);
-        // Computing Omega
-        float omega = 0.0f;
-        for (int i=0; i<a.length; i++) {
-            omega += b[i] - a[i];
-        }
-        omega /= a.length;
-
-        // Computing eta
-        float top = 0;
-        float bot = 0;
-        for (int i=0; i<a.length; i++) {
-            top += (omega-b[i])*a[i];
-            bot += a[i]*a[i];
-        }
-        float eta = -top / bot;
-
-        float sum = 0.0f;
-        for (int i=0; i<a.length; i++) {
-            float d = eta*a[i] + omega - b[i];
-            sum += d*d;
-        }
-        return sum / a.length;
     }
 
     /**
@@ -627,89 +523,4 @@ public class SCAE implements Serializable {
         }
         return res+")";
     }
-
-    /**
-     * Encodes a reconstruction score.
-     */
-    public class ReconstructionScore {
-
-        /**
-         * Stores the measurements.
-         */
-        private ArrayList<Float> array;
-
-        /**
-         * Constructs a reconstruction score.
-         * @param euclDist list of Euclidean distances
-         * @param soid list of SOIDs
-         * @param ncorr list of normalized correlations
-         * @param rMask indicates which data should be used
-         */
-        public ReconstructionScore(List<Float> euclDist, List<Float> soid, List<Float> ncorr, int rMask) {
-
-            array = new ArrayList<>();
-
-            if ((rMask&SCAE.EUCLIDIAN_DISTANCE)!=0) {
-                array.add(getMean(euclDist));
-            }
-
-            if ((rMask&SCAE.EUCLIDIAN_DISTANCE_VAR)!=0) {
-                array.add(getVar(euclDist));
-            }
-
-            if ((rMask&SCAE.SCALE_OFFSET_INVAR_DIST)!=0) {
-                array.add(getMean(soid));
-            }
-
-            if ((rMask&SCAE.SCALE_OFFSET_INVAR_DIST_VAR)!=0) {
-                array.add(getVar(soid));
-            }
-
-            if ((rMask&SCAE.NORMALIZED_CORRELATION)!=0) {
-                array.add(getMean(ncorr));
-            }
-
-            if ((rMask&SCAE.NORMALIZED_CORRELATION_VAR)!=0) {
-                array.add(getVar(ncorr));
-            }
-        }
-
-        /**
-         * @return an array out of the measurements
-         */
-        public float[] toArray() {
-            float[] arr = new float[array.size()];
-            for (int i=0; i<arr.length; i++) {
-                arr[i] = array.get(i);
-            }
-            return arr;
-        }
-
-        /**
-         * @param l a list
-         * @return mean value of the list
-         */
-        private float getMean(List<Float> l) {
-            float sum = 0;
-            for (Float f : l) {
-                sum += f;
-            }
-            return sum / l.size();
-        }
-
-        /**
-         * @param l a list
-         * @return variance of the list
-         */
-        private float getVar(List<Float> l) {
-            float mean = getMean(l);
-            float sum = 0;
-            for (Float f : l) {
-                float d = (f-mean);
-                sum += d*d;
-            }
-            return sum / l.size();
-        }
-    }
-
 }

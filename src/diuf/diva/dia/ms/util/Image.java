@@ -26,11 +26,12 @@
 
 package diuf.diva.dia.ms.util;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import javax.imageio.ImageIO;
-import static java.lang.Math.*;
+
+import static java.lang.Math.min;
 
 /**
  * This is a class managing images.
@@ -86,6 +87,24 @@ public class Image {
         assert ((new File(fileName)).exists());
         
         BufferedImage src = ImageIO.read(new File(fileName));
+        width = src.getWidth();
+        height = src.getHeight();
+        pixel = new float[3][width][height];
+        for (int x=0; x<width; x++) {
+            for (int y=0; y<height; y++) {
+                int rgb = src.getRGB(x, y);
+                pixel[0][x][y] = getR(rgb);
+                pixel[1][x][y] = getG(rgb);
+                pixel[2][x][y] = getB(rgb);
+            }
+        }
+    }
+    
+    /**
+     * Creates an Image instance out of a BufferedImage
+     * @param src source buffered image
+     */
+    public Image(BufferedImage src) {
         width = src.getWidth();
         height = src.getHeight();
         pixel = new float[3][width][height];
@@ -162,7 +181,7 @@ public class Image {
      * Converts the colorspace to the given type.
      * @param t target color space 
      */
-    public void convertTo(Colorspace t) {
+    public Image convertTo(Colorspace t) {
         switch (t) {
             case RGB:
                 toRGB();
@@ -189,6 +208,7 @@ public class Image {
                 toGrayscale();
                 break;
         }
+        return this;
     }
     
     /**

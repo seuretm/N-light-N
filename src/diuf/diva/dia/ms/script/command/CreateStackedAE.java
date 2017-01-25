@@ -37,6 +37,10 @@ import org.jdom2.Element;
  */
 public class CreateStackedAE extends AbstractCommand {
 
+    /**
+     * Constructor of the class.
+     * @param script which creates the command
+     */
     public CreateStackedAE(XMLScript script) {
         super(script);
     }
@@ -73,7 +77,16 @@ public class CreateStackedAE extends AbstractCommand {
             int hidden = Integer.parseInt(readElement(unitEl, "hidden"));
 
             // Parse the 'layer' text
-            String layerClassName = readElement(unitEl, "layer");
+            
+            String encoderClassName = null;
+            String decoderClassName = null;
+            if (unitEl.getChild("layer")!=null) {
+                encoderClassName = readElement(unitEl, "layer");
+                decoderClassName = encoderClassName;
+            } else {
+                encoderClassName = readElement(unitEl, "encoder");
+                decoderClassName = readElement(unitEl, "decoder");
+            }
 
             // Create the unit with specified parameters
             unit = new StandardAutoEncoder(
@@ -81,31 +94,17 @@ public class CreateStackedAE extends AbstractCommand {
                     height,
                     inputDepth,
                     hidden,
-                    layerClassName
-            );
-        }
-
-        if (type.equalsIgnoreCase("SAENN")) {
-            int hidden = Integer.parseInt(readElement(unitEl, "hidden"));
-            unit = new SAENNUnit(
-                    width,
-                    height,
-                    inputDepth,
-                    hidden
+                    encoderClassName,
+                    decoderClassName
             );
         }
         
-        if (type.equalsIgnoreCase("DAENN")) {
-            throw new UnsupportedOperationException("Denoising AE still to be implemented (conversion of DAENNUnit)");
-            /*
-            int hidden = Integer.parseInt(readElement(unitEl, "hidden"));
-            unit = new DAENNUnit(
+        if (type.equalsIgnoreCase("MAX-POOLER")) {
+            unit = new MaxPooler(
                     width,
                     height,
-                    inputDepth,
-                    hidden
+                    inputDepth
             );
-            */
         }
         
         if (type.equalsIgnoreCase("BasicBBRBM")) {
@@ -128,24 +127,6 @@ public class CreateStackedAE extends AbstractCommand {
             );
         }
         
-        if (type.equalsIgnoreCase("Binarization")) {
-            unit = new ToBinaryUnit(
-                    width,
-                    height,
-                    inputDepth,
-                    inputDepth
-            );
-        }
-        
-        if (type.equalsIgnoreCase("Real")) {
-            unit = new ToRealUnit(
-                    width,
-                    height,
-                    inputDepth,
-                    inputDepth
-            );
-        }
-
         if (type.equalsIgnoreCase("PCA")) {
             // Parse the 'dimensions' text
             String s = readElement(unitEl, "dimensions");
@@ -171,6 +152,23 @@ public class CreateStackedAE extends AbstractCommand {
             );
         }
 
+        if (type.equalsIgnoreCase("LDA")) {
+            // Parse the 'dimensions' text
+            int dim = Integer.parseInt(readElement(unitEl, "dimensions"));
+
+            // Parse the 'layer' text
+            String layerClassName = readElement(unitEl, "layer");
+
+            // Create the unit with specified parameters
+            unit = new LDAAutoEncoder(
+                    width,
+                    height,
+                    inputDepth,
+                    dim,
+                    layerClassName
+            );
+        }
+
         if (type.equalsIgnoreCase("KMeans")) {
             error("KMeans unit no longer supported after refactor");
         }
@@ -185,10 +183,23 @@ public class CreateStackedAE extends AbstractCommand {
         return "";
     }
     
+    /**
+     * Returns an ID given in an element.
+     * @param e the element
+     * @return an id
+     */
     protected String readId(Element e) {
         return readAttribute(e, "id");
     }
     
+    /**
+     * Creates an scae or adds a layer to it.
+     * @param scae can be null in CreateStackedAE
+     * @param unit autoencoder to use for the first/new layer
+     * @param ox offset-x when convolving
+     * @param oy offset-y when convolving
+     * @return the SCAE
+     */
     protected SCAE process(SCAE scae, AutoEncoder unit, int ox, int oy) {
         scae = new SCAE(
                 unit,
@@ -198,6 +209,11 @@ public class CreateStackedAE extends AbstractCommand {
         return scae;
     }
     
+    /**
+     * Either returns an SCAE (when adding layers) or null (when creating one)
+     * @param id of the SCAE
+     * @return null or a reference
+     */
     protected SCAE getAE(String id) {
         return null;
     }
