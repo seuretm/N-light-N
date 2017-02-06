@@ -38,7 +38,7 @@ import java.io.Serializable;
  * use it, call the deconvolve() method from a FFCNN instance.
  * @author Mathias Seuret
  */
-public class MultipleUnitsConvolution extends ConvolutionalLayer implements Serializable {
+public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializable {
     /**
      * Number of units on X axis.
      */
@@ -346,16 +346,26 @@ public class MultipleUnitsConvolution extends ConvolutionalLayer implements Seri
 
     @Override
     public int getInputWidth() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return inputWidth;
     }
 
     @Override
     public int getInputHeight() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return inputHeight;
     }
 
     @Override
     public DataBlock getPrevError() {
         return prevError;
+    }
+
+    @Override
+    public int getXoffset() {
+        return offsetX;
+    }
+
+    @Override
+    public int getYoffset() {
+        return offsetY;
     }
 }

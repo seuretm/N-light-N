@@ -1,0 +1,9 @@
+This example illustrates how to reproduce the following architecture,
+which is given on the MNIST website:
+	2-layer NN, 300 hidden units, mean square error
+
+In short, this is a simple feed forward neural network, with two
+layers (300 neurons in the hidden one). It is not pre-trained as
+auto-encoder.
+
+To run this example, you will need to download the MNIST dataset.

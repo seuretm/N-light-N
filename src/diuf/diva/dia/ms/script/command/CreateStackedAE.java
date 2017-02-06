@@ -27,9 +27,15 @@
 package diuf.diva.dia.ms.script.command;
 
 import diuf.diva.dia.ms.ml.ae.*;
+import diuf.diva.dia.ms.ml.ae.ffcnn.ConvolutionalLayer;
+import diuf.diva.dia.ms.ml.ae.ffcnn.FFCNN;
 import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 import diuf.diva.dia.ms.script.XMLScript;
 import org.jdom2.Element;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 
 /**
  * Creates an SCAE. Described in the doc.
@@ -48,7 +54,15 @@ public class CreateStackedAE extends AbstractCommand {
     @Override
     public String execute(Element element) throws Exception {
         String id = readId(element);
-        
+
+        /* If the <fromClassifier> tag is present, skip
+         *
+         */
+        if (element.getChild("fromClassifier") != null) {
+            script.scae.put(id, convertFromClassifier(getAE(id),readElement(element, "fromClassifier")));
+            return "";
+        }
+
         Element unitEl = element.getChild("unit");
         if (unitEl==null) {
             error("require unit tag");
@@ -182,7 +196,8 @@ public class CreateStackedAE extends AbstractCommand {
         script.scae.put(id, scae);
         return "";
     }
-    
+
+
     /**
      * Returns an ID given in an element.
      * @param e the element
@@ -208,7 +223,51 @@ public class CreateStackedAE extends AbstractCommand {
         );
         return scae;
     }
-    
+
+    /**
+     * Given a classifier (atm only FFCNN is supported!) extracts the AEs in the base
+     * and creates a SCAE that is then returned
+     * @param scae scae to add the layer on, if it is null then is the first layer and a new scae is created
+     * @param classifierPath string of the path to the classifier *.dat file
+     * @return the SCAE built with the classifier AEs
+     */
+    protected SCAE convertFromClassifier(SCAE scae, String classifierPath) {
+
+
+        FFCNN ffcnn = null;
+
+        // Read the *.dat file and load the content
+        try {
+            Object o = new ObjectInputStream(new FileInputStream(classifierPath)).readObject();
+            // If it is a FFCNN classifier then assign it, otherwise throw error
+            if (o instanceof FFCNN) {
+                ffcnn = (FFCNN) o;
+            }else{
+                throw new RuntimeException("[ERROR][CreateStackedAE][convertFromClassifier] The loaded object is not of type FFCNN.");
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        // To avoid warnings
+        assert(ffcnn!=null);
+
+        if(scae == null) {
+            // Init the scae with the unit of the first layer of the ffcnn
+            ConvolutionalLayer l = ffcnn.getLayer(0);
+            scae = new SCAE(l.getAutoEncoder(0,0).clone(),l.getXoffset(),l.getYoffset());
+        }else{
+            /* Add a layer to the SCAE corresponding to the "next" on the FFCNN (aka: if the scae
+             * has 2 layers already, it copy the third layer of the FFCNN. It does not make a check
+             * if it exists or not. It is your responsibility to ensure that it make sense.
+             */
+            ConvolutionalLayer l = ffcnn.getLayer(scae.getLayers().size());
+            scae.addLayer(l.getAutoEncoder(0,0).clone(),l.getXoffset(), l.getYoffset());
+        }
+
+        return scae;
+    }
+
     /**
      * Either returns an SCAE (when adding layers) or null (when creating one)
      * @param id of the SCAE

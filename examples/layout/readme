@@ -1,0 +1,26 @@
+This example illustrates pixel-level layout analysis done using scripts
+only. Note that for weight reasons, we use the same image for both
+training and test. You can of course use different ones, and if possible
+several ones for training if you intend to maximize the accuracy. You
+can find full datasets at the following addresses:
+	https://diuf.unifr.ch/main/hisdoc/diva-hisdb
+	https://diuf.unifr.ch/main/hisdoc/divadia
+You might need to have to process their ground truth in order to have
+single-class labels for the pixels.
+
+The ground truth has to be encoded as pixels. The different classes
+are:
+	0x000000 : out of page
+	0x000001 : background
+	0x000002 : decorations
+	0x000003 : text blocks (without text lines)
+	0x000004 : text lines
+An example file is provided in the data/ folder, along with its ground
+truth.
+
+To run the two example scripts:
+	java -Xmx1G -jar N-light-N.jar script-3l.xml
+	java -Xmx1G -jar N-light-N.jar script-4l.xml
+
+The output, which appears in result/, displays patches either in green
+or red, depending on whether they have been correctly classified or not.

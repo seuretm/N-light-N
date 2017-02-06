@@ -1,0 +1,116 @@
+<layout-analysis colorspace="RGB">
+	<!-- loading the image as a dataset -->
+	<load-dataset id="image">
+		<folder>data/image</folder>
+		<size-limit>1</size-limit>
+	</load-dataset>
+	
+	<!-- loading the ground truth as a dataset; it will be needed later -->
+	<load-dataset id="ground-truth">
+		<folder>data/gt</folder>
+		<size-limit>1</size-limit>
+	</load-dataset>
+	
+	<!-- create a one-layer AE -->
+	<create-scae id="scae">
+		<unit>
+			<standard>
+				<encoder>NeuralLayer</encoder>
+				<decoder>LinearLayer</decoder>
+				<hidden>5</hidden>
+			</standard>
+		</unit>
+		<width>3</width>
+		<height>3</height>
+		<offset-x>3</offset-x>
+		<offset-y>3</offset-y>
+	</create-scae>
+	
+	<!-- train this layer -->
+	<train-scae ref="scae">
+		<dataset>image</dataset>
+		<samples>500000</samples>
+		<max-time>1</max-time>
+	</train-scae>
+	
+	<!-- add a new layer to the AE -->
+	<add-layer ref="scae">
+		<unit>
+			<standard>
+				<encoder>NeuralLayer</encoder>
+				<decoder>LinearLayer</decoder>
+				<hidden>25</hidden>
+			</standard>
+		</unit>
+		<width>3</width>
+		<height>3</height>
+		<offset-x>3</offset-x>
+		<offset-y>3</offset-y>
+	</add-layer>
+	
+	<!-- train the third layer -->
+	<train-scae ref="scae">
+		<dataset>image</dataset>
+		<samples>500000</samples>
+		<max-time>1</max-time>
+	</train-scae>
+	
+	<!-- add a new layer to the AE -->
+	<add-layer ref="scae">
+		<unit>
+			<standard>
+				<encoder>NeuralLayer</encoder>
+				<decoder>LinearLayer</decoder>
+				<hidden>36</hidden>
+			</standard>
+		</unit>
+		<width>3</width>
+		<height>3</height>
+		<offset-x>3</offset-x>
+		<offset-y>3</offset-y>
+	</add-layer>
+	
+	<!-- train the second layer -->
+	<train-scae ref="scae">
+		<dataset>image</dataset>
+		<samples>500000</samples>
+		<max-time>1</max-time>
+	</train-scae>
+	
+	<!-- show what they look like -->
+	<show-features ref="scae">
+		<file>features-3rd-layer.png</file>
+		<!-- if you want a bigger image, use a scale greater than 1 -->
+		<scale>1</scale>
+	</show-features>
+	
+	<!-- create a classifier with 4 neurons in the classification layer -->
+	<create-classifier id="nn">
+		<type>FFCNN</type>
+		<layer>NeuralLayer</layer>
+		<scae>scae</scae>
+		<classes>5</classes>
+	</create-classifier>
+	
+	<!-- train the classifier -->
+	<train-classifier ref="nn">
+		<dataset>image</dataset>
+		<groundTruth>ground-truth</groundTruth>
+		<samples>1000000</samples>
+		<max-time>5</max-time>
+		<display-progress>500</display-progress>
+		<save-progress>training.png</save-progress>
+	</train-classifier>
+	
+	<!-- check how the classifieer performs -->
+	<evaluate-classifier ref="nn">
+		<dataset>image</dataset>
+		<groundTruth>ground-truth</groundTruth>
+		<offset-x>5</offset-x>
+		<offset-y>5</offset-y>
+		<method>single-class</method>
+		<output-folder>result</output-folder>
+	</evaluate-classifier>
+	
+	
+</layout-analysis>

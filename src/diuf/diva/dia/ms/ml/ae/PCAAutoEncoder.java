@@ -242,19 +242,11 @@ public class PCAAutoEncoder extends AutoEncoder {
 
             System.out.println("\n" + ft.format(new Date()) + ": PCA finished");
 
-
-
-
-            /* Trying to set the bias to be equal to the means produces much worse
-             * results in a simple SCAE 1 layer using visual recode evaluation.
-             * Therefore it is not done, but the code is here in case would it be
-             * necessary to repeat the test in the future (as it already happened).
             // Get means of the data
-            Matrix means = doubleToMatrix( pca.getMeans());
+            Matrix means = doubleToMatrix(pca.getMeans()).transpose();
 
-            encoder.setBias(copy(W.times(means).transpose().getArray())[0]);
-            decoder.setBias(copy(W.times(means).times(-1).transpose().getArray())[0]);
-            */
+            encoder.setBias(copy(means.times(-1).times(W).getArray())[0]);
+            decoder.setBias(copy(means.getArray())[0]);
 
             // Set the new weights to the encoder and decoder
             encoder.setWeights(copy(W.getArray()));

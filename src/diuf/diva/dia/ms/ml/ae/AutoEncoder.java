@@ -38,83 +38,86 @@ import java.util.Arrays;
  * @author Michele Alberti, Mathias Seuret
  */
 public abstract class AutoEncoder implements Serializable {
+
+    private static final long serialVersionUID = -3741751341348339527l;
+
     /**
      * Reference to the input - can be modified.
      */
-    protected DataBlock input;
+    public DataBlock input;
     /**
      * X coordinate of the input area.
      */
-    protected int inputX;
+    public int inputX;
     /**
      * Y coordinate of the input area.
      */
-    protected int inputY;
+    public int inputY;
     /**
      * Width of the input area.
      */
-    protected final int inputWidth;
+    public final int inputWidth;
     /**
      * Height of the input area.
      */
-    protected final int inputHeight;
+    public final int inputHeight;
     /**
      * Depth of the input area.
      */
-    protected final int inputDepth;
+    public final int inputDepth;
     /**
      * Length of the input if represented in a 1D array
      */
-    protected int inputLength;
+    public int inputLength;
     /**
      * Input represented in a 1D array. Beware this copy needs to
      * be manually updated as it is not a reference to real input
      */
-    protected float[] inputArray;
+    public float[] inputArray;
     /**
      * Reference to the output.
      */
-    protected DataBlock output;
+    public DataBlock output;
     /**
      * X coordinate of the output.
      */
-    protected int outputX;
+    public int outputX;
     /**
      * Y coordinate of the output.
      */
-    protected int outputY;
+    public int outputY;
     /**
      * Depth of the output, corresponds to the number of outputs.
      */
-    protected int outputDepth;
+    public int outputDepth;
     /**
      * Learning speed of the unit.
      */
-    protected float learningSpeed = 1e-3f;
+    public float learningSpeed = 1e-3f;
     /**
      * Encoding layer
      */
-    protected Layer encoder;
+    public Layer encoder;
     /**
      * Decoding layer
      */
-    protected Layer decoder;
+    public Layer decoder;
     /**
      * Reference to the output error.
      */
-    protected DataBlock error;
+    public DataBlock error;
     /**
      * Reference to the previous error.
      */
-    protected DataBlock prevErr;
+    public DataBlock prevErr;
     /**
      * Stores the decoded data.
      */
-    protected float[] decoded;
+    public float[] decoded;
     /**
      * Keeps track whether trainingDone() has been already called or not
      */
-    protected boolean trainingDone = false;
+    public boolean trainingDone = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -350,7 +353,7 @@ public abstract class AutoEncoder implements Serializable {
         // Learn
         encoder.learn();
         decoder.learn();
-        
+
         return err;
     }
 
@@ -395,7 +398,7 @@ public abstract class AutoEncoder implements Serializable {
      * Can be used to manually activate an output (value 1) or deactivate it
      * (value 0). This is used when displaying features.
      * @param outputNumber output to activate or not
-     * @param state true if activated
+     * @param activated true if activated
      */
     public void activateOutput(int outputNumber, boolean activated) {
         output.setValue(outputNumber, outputX, outputY, (activated) ? 1 : 0);
@@ -530,7 +533,7 @@ public abstract class AutoEncoder implements Serializable {
         encoder.setOutputArray(output.getValues(x, y));
 
         // If needed also set its error
-        if (error!=null) {
+        if (error!=null && output.getWidth() == error.getWidth() && output.getHeight() == error.getHeight()) {
             encoder.setError(error.getValues(x, y));
         }
 

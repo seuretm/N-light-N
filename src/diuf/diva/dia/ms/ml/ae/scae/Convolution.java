@@ -31,51 +31,51 @@ import diuf.diva.dia.ms.ml.ae.SupervisedAutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
 
 import java.io.Serializable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /**
  * This corresponds to a convolution of an autoencoder on an input data block.
  * @author Mathias Seuret, Michele Alberti
  */
 public class Convolution  implements Serializable {
+
+    private static final long serialVersionUID = 5381615971840980344l;
+
     /**
      * The autoencoder.
      */
-    private AutoEncoder base;
+    public AutoEncoder base;
     /**
      * The input.
      */
-    private DataBlock input;
+    public DataBlock input;
     /**
      * The output. Its dimensions must match the dimensions of the convolution.
      */
-    private DataBlock output;
+    public DataBlock output;
     /**
      * The number of X positions of the autoencoder.
      */
-    private int outWidth;
+    public int outWidth;
     /**
      * The number of Y positions of the autoencoder.
      */
-    private int outHeight;
+    public int outHeight;
     /**
      * By how much the autoencoder is offset.
      */
-    private int inputOffsetX;
+    public int inputOffsetX;
     /**
      * By how much the autoencoder is offset.
      */
-    private int inputOffsetY;
+    public int inputOffsetY;
     /**
      * X position of the convolution.
      */
-    private int inputX;
+    public int inputX;
     /**
      * Y position of the convolution.
      */
-    private int inputY;
+    public int inputY;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor

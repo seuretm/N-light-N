@@ -112,8 +112,8 @@ public class XMLScript {
 
         // Select the appropriate rows for your launch. Please comment/De-coment the logging too
 
-        random = new Random(123456789l);
         //System.out.println("\n\n[WARNING] The network randomness is being seeded in XMLScript\n\n");
+       // random = new Random(123456789l);
 
         random = new Random();
     }
@@ -143,6 +143,7 @@ public class XMLScript {
         addCommand(new CreateStackedAE(this));
         addCommand(new AddLayer(this));
         addCommand(new TrainSCAE(this));
+        addCommand(new TrainDecoderOnly(this));
         addCommand(new Recode(this));
         addCommand(new ShowFeatures(this));
         addCommand(new ShowFeatureActivations(this));
@@ -168,8 +169,14 @@ public class XMLScript {
      * @return a new string
      */
     public String preprocess(String in) {
-        for (String key : definitions.keySet()) {
-            in = in.replaceAll(Matcher.quoteReplacement(key), definitions.get(key));
+        /* I pre-process three times so that I am "sure" that nested references get resolved!
+         * This issue is raised by the nasty order of elements in 'definitions' determined
+         * by their hash value instead of insertion order.
+         */
+        for (int i = 0; i < 3; i++) {
+            for (String key : definitions.keySet()) {
+                in = in.replaceAll(Matcher.quoteReplacement(key), definitions.get(key));
+            }
         }
         return in;
     }

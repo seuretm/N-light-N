@@ -26,7 +26,6 @@
 package diuf.diva.dia.ms.ml.ae.ffcnn;
 
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
-import diuf.diva.dia.ms.ml.ae.scae.Convolution;
 import diuf.diva.dia.ms.util.DataBlock;
 
 
@@ -34,38 +33,62 @@ import diuf.diva.dia.ms.util.DataBlock;
  *
  * @author ms
  */
-public abstract class ConvolutionalLayer {
-    public abstract void setInput(DataBlock db, int posX, int posY);
-    
-    public abstract void compute();
-    
-    public abstract void setExpected(int z, float ex);
-    
-    public abstract void setExpected(int x, int y, int z, float ex);
-    
-    public abstract void addError(int x, int y, int z, float e);
-    
-    public abstract void learn();
-    
-    public abstract float backPropagate();
-    
-    public abstract AutoEncoder getAutoEncoder(int x, int y);
-    
-    public abstract void clearError();
-    
-    public abstract void setPrevError(DataBlock db);
-    
-    public abstract float getLearningSpeed();
-    
-    public abstract void setLearningSpeed(float s);
-    
-    public abstract DataBlock getOutput();
+public interface ConvolutionalLayer {
 
-    public abstract DataBlock getError();
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Input
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    void setInput(DataBlock db, int posX, int posY);
 
-    public abstract int getInputWidth();
+    int getInputWidth();
 
-    public abstract int getInputHeight();
+    int getInputHeight();
 
-    public abstract DataBlock getPrevError();
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Error
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    void setPrevError(DataBlock db);
+
+    DataBlock getPrevError();
+
+    void addError(int x, int y, int z, float e);
+
+    void clearError();
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Learning
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    void setExpected(int z, float ex);
+
+    void setExpected(int x, int y, int z, float ex);
+
+    DataBlock getError();
+
+    void learn();
+
+    float backPropagate();
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Compute & output
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    void compute();
+
+    DataBlock getOutput();
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Getters & Setters
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    AutoEncoder getAutoEncoder(int x, int y);
+
+    int getXoffset();
+
+    int getYoffset();
+
+    float getLearningSpeed();
+
+    void setLearningSpeed(float s);
+
+
+
 }

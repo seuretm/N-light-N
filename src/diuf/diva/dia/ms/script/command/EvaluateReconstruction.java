@@ -60,11 +60,6 @@ public class EvaluateReconstruction extends AbstractCommand {
      */
     private int imageIndex = 1;
 
-    /**
-     * Either returns an SCAE (when adding layers) or null (when creating one)
-     * @param id of the SCAE
-     * @return null or a reference
-     */
     public EvaluateReconstruction(XMLScript script) {
         super(script);
     }

@@ -37,7 +37,7 @@ import java.io.Serializable;
  * Convolution layer used by FFCNN.
  * @author Mathias Seuret, Michele Alberti
  */
-public class SingleUnitConvolution extends ConvolutionalLayer implements Serializable {
+public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     /**
      * Number of units on X axis.
      */
@@ -171,18 +171,111 @@ public class SingleUnitConvolution extends ConvolutionalLayer implements Seriali
         unit.setError(error);
     }
 
+
+
+
+
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Computing
+    // Input related
     ///////////////////////////////////////////////////////////////////////////////////////////////
     /**
-     * Computes the output.
+     * @return the input data block
      */
-    public void compute() {
-        for (int x=0; x<outWidth; x++) {
-            for (int y=0; y<outHeight; y++) {
+    DataBlock getInput() {
+        return input;
+    }
+
+    /**
+     * Select the input data and the position.
+     * @param db input data block
+     * @param posX position x of the input
+     * @param posY position y of the input
+     */
+    public void setInput(DataBlock db, int posX, int posY) {
+        assert (db.getDepth() == inputDepth);
+        assert (posX + inputWidth <= db.getWidth());
+        assert (posY + inputHeight <= db.getHeight());
+
+        input = db;
+        inputX = posX;
+        inputY = posY;
+
+        for (int x = 0; x < outWidth; x++) {
+            for (int y = 0; y < outHeight; y++) {
+                unit.setInput(input, inputX + x * offsetX, inputY + y * offsetY);
+            }
+        }
+    }
+
+    /**
+     * @return the perception area width
+     */
+    public int getInputWidth() {
+        return inputWidth;
+    }
+
+    /**
+     * @return the perception area height
+     */
+    public int getInputHeight() {
+        return inputHeight;
+    }
+
+    /**
+     * @return the perception area depth
+     */
+    public int getInputDepth() {
+        return inputDepth;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Error related
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * Selects the data block to which the error has to be backpropagated.
+     * @param db data block
+     */
+    public void setPrevError(DataBlock db) {
+        assert (db != null);
+        assert (db.getDepth() == inputDepth);
+        assert (inputWidth == db.getWidth());
+        assert (inputHeight == db.getHeight());
+
+        prevError = db;
+        unit.setPrevError(db);
+    }
+
+    @Override
+    public DataBlock getPrevError() {
+        return prevError;
+    }
+
+    /**
+     * @return the error data block
+     */
+    public DataBlock getError() {
+        return error;
+    }
+
+    /**
+     * Changes the error data block
+     * @param db new data block
+     */
+    public void setError(DataBlock db) {
+        error = db;
+    }
+
+    /**
+     * Clears the error in all units
+     */
+    public void clearError() {
+        for (int x = 0; x < outWidth; x++) {
+            for (int y = 0; y < outHeight; y++) {
                 unit.setInput(input, inputX + x * offsetX, inputY + y * offsetY);
                 unit.setOutput(output, x, y);
-                unit.encode();
+                unit.setError(error);
+                unit.clearError();
             }
         }
     }
@@ -209,6 +302,17 @@ public class SingleUnitConvolution extends ConvolutionalLayer implements Seriali
     public void setExpected(int x, int y, int z, float ex) {
         float e = output.getValue(z, x, y) - ex;
         addError(x, y, z, e);
+    }
+
+    /**
+     * Adds a value to the error of an output.
+     * @param x output position x
+     * @param y output position y
+     * @param z output position z
+     * @param e error to add
+     */
+    public void addError(int x, int y, int z, float e) {
+        error.setValue(z, x, y, error.getValue(z, x, y) + e / (outWidth * outHeight));
     }
 
     /**
@@ -244,75 +348,22 @@ public class SingleUnitConvolution extends ConvolutionalLayer implements Seriali
         // Return the cumulated error
         return errSum / (outWidth * outHeight);
     }
-    
-    /**
-     * @param x should be 0
-     * @param y should be 0
-     * @return the autoencoder
-     */
-    public AutoEncoder getAutoEncoder(int x, int y) {
-        assert (x==0);
-        assert (y==0);
-        
-        return unit;
-    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Input related
+    // Computing
     ///////////////////////////////////////////////////////////////////////////////////////////////
     /**
-     * @return the perception area width
+     * Computes the output.
      */
-    public int getInputWidth() {
-        return inputWidth;
-    }
-
-    /**
-     * @return the perception area height
-     */
-    public int getInputHeight() {
-        return inputHeight;
-    }
-
-    /**
-     * @return the perception area depth
-     */
-    public int getInputDepth() {
-        return inputDepth;
-    }
-
-    /**
-     * @return the input data block
-     */
-    DataBlock getInput() {
-        return input;
-    }
-
-    /**
-     * Select the input data and the position.
-     * @param db input data block
-     * @param posX position x of the input
-     * @param posY position y of the input
-     */
-    public void setInput(DataBlock db, int posX, int posY) {
-        assert (db.getDepth() == inputDepth);
-        assert (posX + inputWidth <= db.getWidth());
-        assert (posY + inputHeight <= db.getHeight());
-
-        input = db;
-        inputX = posX;
-        inputY = posY;
-        
-        for (int x = 0; x < outWidth; x++) {
-            for (int y = 0; y < outHeight; y++) {
+    public void compute() {
+        for (int x=0; x<outWidth; x++) {
+            for (int y=0; y<outHeight; y++) {
                 unit.setInput(input, inputX + x * offsetX, inputY + y * offsetY);
+                unit.setOutput(output, x, y);
+                unit.encode();
             }
         }
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Output related
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * @return the output of the layer
@@ -322,65 +373,36 @@ public class SingleUnitConvolution extends ConvolutionalLayer implements Seriali
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Error related
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * @return the error data block
-     */
-    public DataBlock getError() {
-        return error;
-    }
-    /**
-     * Changes the error data block
-     * @param db new data block
-     */
-    public void setError(DataBlock db) {
-        error = db;
-    }
-
-    /**
-     * Clears the error in all units
-     */
-    public void clearError() {
-        for (int x = 0; x < outWidth; x++) {
-            for (int y = 0; y < outHeight; y++) {
-                unit.setInput(input, inputX + x * offsetX, inputY + y * offsetY);
-                unit.setOutput(output, x, y);
-                unit.setError(error);
-                unit.clearError();
-            }
-        }
-    }
-
-    /**
-     * Selects the data block to which the error has to be backpropagated.
-     * @param db data block
-     */
-    public void setPrevError(DataBlock db) {
-        assert (db != null);
-        assert (db.getDepth() == inputDepth);
-        assert (inputWidth == db.getWidth());
-        assert (inputHeight == db.getHeight());
-
-        prevError = db;
-        unit.setPrevError(db);
-    }
-
-    /**
-     * Adds a value to the error of an output.
-     * @param x output position x
-     * @param y output position y
-     * @param z output position z
-     * @param e error to add
-     */
-    public void addError(int x, int y, int z, float e) {
-        error.setValue(z, x, y, error.getValue(z, x, y) + e / (outWidth*outHeight));
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
     // Getters & Setters
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @param x should be 0
+     * @param y should be 0
+     * @return the autoencoder
+     */
+    public AutoEncoder getAutoEncoder(int x, int y) {
+        assert (x==0);
+        assert (y==0);
+
+        return unit;
+    }
+
+    /**
+     * @return the offset of the x-axis
+     */
+    @Override
+    public int getXoffset() {
+        return offsetX;
+    }
+
+    /**
+     * @return the offset of the y-axis
+     */
+    @Override
+    public int getYoffset() {
+        return offsetY;
+    }
 
     /**
      * @return the current learning speed
@@ -397,9 +419,5 @@ public class SingleUnitConvolution extends ConvolutionalLayer implements Seriali
     public void setLearningSpeed(float s) {
         unit.setLearningSpeed(s);
     }
-    
-    @Override
-    public DataBlock getPrevError() {
-        return prevError;
-    }
+
 }

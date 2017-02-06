@@ -293,7 +293,7 @@ public class TrainSCAE extends AbstractCommand {
         double cumulatedError = 0;
 
         // Number of samples already evaluated
-        int sample = 0;
+        int sample = 1;
 
         // Epoch counter
         int epoch = 0;
@@ -340,8 +340,9 @@ public class TrainSCAE extends AbstractCommand {
                 // Set input
                 scae.setInput(db, x, y);
 
-                // Train
+
                 err += scae.train();
+
 
                 // Increase counter of examined samples
                 sample++;
@@ -555,7 +556,7 @@ public class TrainSCAE extends AbstractCommand {
         double cumulatedError = 0;
 
         // Random numbers generator
-        Random rand = new Random();
+        Random rand = XMLScript.getRandom();
 
         /***********************************************************************************************
          * PARSE ELEMENT FROM XML

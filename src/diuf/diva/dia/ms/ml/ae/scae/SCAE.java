@@ -133,6 +133,17 @@ public class SCAE implements Serializable {
     }
 
     /**
+     * Trains the decoder of the top-layer on the current sample.
+     * @return some kind of error value
+     */
+    public float trainDecoderOnly() {
+        for (int s=0; s<stages.size()-1; s++) {
+            stages.get(s).encode();
+        }
+        return top.train();
+    }
+
+    /**
      * Trains the denoising top layer - fails if this layer is not denoising.
      * @param clean clean training data
      * @param noisy noisy training data
@@ -523,4 +534,5 @@ public class SCAE implements Serializable {
         }
         return res+")";
     }
+
 }

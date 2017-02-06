@@ -44,20 +44,7 @@ public class AddLayer extends CreateStackedAE {
     public AddLayer(XMLScript script) {
         super(script);
     }
-    
-    /**
-     * @param id of an SCAE
-     * @return the SCAE or throws an error if not found
-     */
-    @Override
-    protected SCAE getAE(String id) {
-        SCAE ae = script.scae.get(id);
-        if (ae==null) {
-            error("cannot find an autoencoder with id "+id);
-        }
-        return ae;
-    }
-    
+
     /**
      * Returns the ID referenced by an element.
      * @param e element
@@ -76,6 +63,19 @@ public class AddLayer extends CreateStackedAE {
                 oy
         );
         return scae;
+    }
+
+    /**
+     * @param id of an SCAE
+     * @return the SCAE or throws an error if not found
+     */
+    @Override
+    protected SCAE getAE(String id) {
+        SCAE ae = script.scae.get(id);
+        if (ae==null) {
+            error("cannot find an autoencoder with id "+id);
+        }
+        return ae;
     }
 
     @Override

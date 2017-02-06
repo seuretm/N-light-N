@@ -47,16 +47,12 @@ public class Define extends AbstractCommand {
     public String execute(Element element) throws Exception {
         String key = element.getAttributeValue("id");
         if (key==null) {
-            error(
-                    "an id attribute is required"
-            );
+            error("an id attribute is required");
         }
         String val = element.getText();
         if (val==null || val.length()==0) {
             if (!script.definitions.containsKey(key)) {
-                error(
-                        key+" was not defined"
-                );
+                error(key+" was not defined");
             }
             return "";
         }

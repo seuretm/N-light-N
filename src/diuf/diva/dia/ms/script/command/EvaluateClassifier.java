@@ -555,7 +555,7 @@ public class EvaluateClassifier extends AbstractCommand {
         int[] falsePositive = new int[nbClasses];
         int[] trueNegative = new int[nbClasses];
         int[] falseNegative = new int[nbClasses];
-        int[] accuracy = new int[nbClasses];
+        double[] accuracy = new double[nbClasses];
 
         // Init confusion matrix
         int[][] cm = new int[nbClasses][nbClasses];
@@ -624,7 +624,7 @@ public class EvaluateClassifier extends AbstractCommand {
             avgAcc += accuracy[c]/nbClasses;
         }
 
-        script.println("Finish evaluating classifier single-class: ACC=" + String.format("%.2f", avgAcc));
+        script.println("Single-class classifier evaluation : ACC=" + String.format("%.2f", avgAcc));
 
         /***********************************************************************************************
          * COMPUTE PRECISION, RECALL AND F1 SCORE
@@ -668,7 +668,7 @@ public class EvaluateClassifier extends AbstractCommand {
 
         // Print results
         StringBuilder s = new StringBuilder();
-        s.append("Finish evaluating classifier: ");
+        s.append("Multiple-classes classifier evaluation: ");
         if (precision[0] == 0) {
             s.append("[WARNING] No class has ever activated!");
             precision[0] = Float.NaN;
