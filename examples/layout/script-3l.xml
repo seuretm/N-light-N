@@ -79,6 +79,11 @@
 		<display-progress>500</display-progress>
 		<save-progress>training.png</save-progress>
 	</train-classifier>
+    
+    <!-- save the trained classifier -->
+    <save ref="nn">
+        <file>classifier.nn</file>
+    </save>
 	
 	<!-- check how the classifieer performs -->
 	<evaluate-classifier ref="nn">
