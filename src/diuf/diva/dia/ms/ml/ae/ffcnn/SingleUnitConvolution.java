@@ -39,6 +39,10 @@ import java.io.Serializable;
  */
 public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
+    /**
      * Number of units on X axis.
      */
     int outWidth;
@@ -182,7 +186,7 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     /**
      * @return the input data block
      */
-    DataBlock getInput() {
+    public DataBlock getInput() {
         return input;
     }
 
@@ -194,8 +198,8 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
      */
     public void setInput(DataBlock db, int posX, int posY) {
         assert (db.getDepth() == inputDepth);
-        assert (posX + inputWidth <= db.getWidth());
-        assert (posY + inputHeight <= db.getHeight());
+        //assert (posX + inputWidth <= db.getWidth());
+        //  assert (posY + inputHeight <= db.getHeight());
 
         input = db;
         inputX = posX;
@@ -232,10 +236,17 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Error related
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public DataBlock getPrevError() {
+        return prevError;
+    }
+
     /**
      * Selects the data block to which the error has to be backpropagated.
      * @param db data block
      */
+    @Override
     public void setPrevError(DataBlock db) {
         assert (db != null);
         assert (db.getDepth() == inputDepth);
@@ -244,11 +255,6 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
 
         prevError = db;
         unit.setPrevError(db);
-    }
-
-    @Override
-    public DataBlock getPrevError() {
-        return prevError;
     }
 
     /**
@@ -302,6 +308,28 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     public void setExpected(int x, int y, int z, float ex) {
         float e = output.getValue(z, x, y) - ex;
         addError(x, y, z, e);
+    }
+    
+    /**
+     * Sets the expected class, assuming the layer is not convolved.
+     * @param cNum expected class number
+     */
+    public void setExpectedClass(int cNum) {
+        setExpectedClass(0, 0, cNum);
+    }
+    
+    /**
+     * Sets the expected class for a given location in the convolution.
+     * @param x coordinate
+     * @param y coordinate
+     * @param cNum expected class number
+     */
+    @Override
+    public void setExpectedClass(int x, int y, int cNum) {
+        unit.setInput(input, inputX + x * offsetX, inputY + y * offsetY);
+        unit.setOutput(output, x, y);
+        unit.setError(error);
+        unit.getEncoder().setExpectedClass(cNum);
     }
 
     /**
@@ -419,5 +447,29 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     public void setLearningSpeed(float s) {
         unit.setLearningSpeed(s);
     }
+
+    @Override
+    public void startTraining() {
+        unit.startTraining();
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        unit.stopTraining();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        unit.clearGradient();
+    }
+
+    
 
 }

@@ -26,7 +26,7 @@
 package diuf.diva.dia.ms.ml.ae.ffcnn;
 
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
-import diuf.diva.dia.ms.ml.ae.scae.Convolution;
+import diuf.diva.dia.ms.ml.ae.StandardAutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
 import java.io.Serializable;
 
@@ -99,27 +99,33 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
     AutoEncoder[][] unit;
     
     /**
-     * Turns a convolution into a deconvolved layer.
-     * @param prev to transform
+     * Set to true during training phases.
      */
-    public MultipleUnitsConvolution(SingleUnitConvolution prev) {
-        output = prev.getOutput().clone();
+    protected boolean isTraining = false;
+    
+    /**
+     * Turns a convolution into a deconvolved layer.
+     * @param suc to transform
+     */
+    public MultipleUnitsConvolution(SingleUnitConvolution suc) {
+        output = suc.getOutput().clone();
         
-        inputWidth = prev.inputWidth;
-        inputHeight = prev.inputHeight;
-        inputDepth = prev.inputDepth;
-        outWidth = prev.outWidth;
-        outHeight = prev.outHeight;
-        offsetX = prev.offsetX;
-        offsetY = prev.offsetY;
+        inputWidth = suc.inputWidth;
+        inputHeight = suc.inputHeight;
+        inputDepth = suc.inputDepth;
+        outWidth = suc.outWidth;
+        outHeight = suc.outHeight;
+        offsetX = suc.offsetX;
+        offsetY = suc.offsetY;
+        input = suc.input.clone();
         
         error = new DataBlock(outWidth, outHeight, output.getDepth());
         
         unit = new AutoEncoder[outWidth][outHeight];
-        prev.unit.setError(error);
+        suc.unit.setError(error);
         for (int x=0; x<outWidth; x++) {
             for (int y=0; y<outHeight; y++) {
-                unit[x][y] = prev.unit.clone();
+                unit[x][y] = suc.unit.clone();
                 unit[x][y].setError(error);
                 unit[x][y].setInput(input, x, y);
                 unit[x][y].setOutput(output, x, y);
@@ -127,41 +133,29 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
         }
     }
     
-    /**
-     * Creates a deconvolved layer and "connects" it to a previous convolution
-     * or deconvolved layer.
-     * @param prev previous layer
-     * @param layerClassName class name of the encoder
-     * @param nbNeurons number of neurons in the encoder
-     */
-    public MultipleUnitsConvolution(SingleUnitConvolution prev, String layerClassName, int nbNeurons) {
-        outWidth = prev.outWidth;
-        outHeight = prev.outHeight;
-        outDepth = prev.outDepth;
-        error = new DataBlock(outWidth, outHeight, outDepth);
+    public MultipleUnitsConvolution(ConvolutionalLayer previous, String layerType, int outWidth, int outHeight, int outDepth) {
+        output = new DataBlock(outWidth, outHeight, outDepth);
+        error  = new DataBlock(outWidth, outHeight, outDepth);
+        this.outWidth  = outWidth;
+        this.outHeight = outHeight;
+        this.outDepth  = outDepth;
+        inputWidth  = previous.getOutput().getWidth();
+        inputHeight = previous.getOutput().getHeight();
+        inputDepth  = previous.getOutput().getDepth();
+        input = previous.getOutput();
+        offsetX = 0;
+        offsetY = 0;
+        
+        unit = new AutoEncoder[outWidth][outHeight];
         for (int x=0; x<outWidth; x++) {
             for (int y=0; y<outHeight; y++) {
-                unit[x][y] = prev.unit.clone();
+                unit[x][y] = new StandardAutoEncoder(inputWidth, inputHeight, inputDepth, outDepth, layerType);
                 unit[x][y].setError(error);
+                unit[x][y].setInput(input, 0, 0);
+                unit[x][y].setOutput(output, x, y);
             }
         }
     }
-    
-    /**
-     * Creates a deconvolved layer out of a convolved layer.
-     * @param model convolved layer to use
-     */
-    /*public MultipleUnitsConvolution(SingleUnitLayer model) {
-        this(
-                new Convolution(
-                        model.unit,
-                        model.outWidth,
-                        model.outHeight,
-                        model.offsetX,
-                        model.offsetY
-                )
-        );
-    }*/
     
     /**
      * Computes the output.
@@ -186,6 +180,14 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
     }
     
     /**
+     * Sets the expected class, assuming the layer is not convolved.
+     * @param cNum class number
+     */
+    public void setExpectedClass(int cNum) {
+        setExpectedClass(0, 0, cNum);
+    }
+    
+    /**
      * Sets which value was expected at a given output.
      * @param x output position x
      * @param y output position y
@@ -196,6 +198,17 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
     public void setExpected(int x, int y, int z, float ex) {
         float e = output.getValue(z, x, y) - ex;
         addError(x, y, z, e);
+    }
+    
+    /**
+     * Sets which class was expected at a given output.
+     * @param x output position x
+     * @param y output position y
+     * @param cNum class number
+     */
+    @Override
+    public void setExpectedClass(int x, int y, int cNum) {
+        unit[x][y].getEncoder().setExpectedClass(cNum);
     }
     
     /**
@@ -249,7 +262,8 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
     public AutoEncoder getAutoEncoder(int x, int y) {
         return unit[x][y];
     }
-    
+
+
     /**
      * Select the input data and the position.
      * @param db input data block
@@ -271,6 +285,11 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
                 unit[x][y].setInput(db, posX + x * offsetX, posY + y * offsetY);
             }
         }
+    }
+    
+    @Override
+    public DataBlock getInput() {
+        return input;
     }
     
     /**
@@ -344,6 +363,17 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
         return error;
     }
 
+
+    @Override
+    public int getXoffset() {
+        return offsetX;
+    }
+
+    @Override
+    public int getYoffset() {
+        return offsetY;
+    }
+
     @Override
     public int getInputWidth() {
         return inputWidth;
@@ -360,12 +390,36 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
     }
 
     @Override
-    public int getXoffset() {
-        return offsetX;
+    public void startTraining() {
+        for (AutoEncoder[] aes : unit) {
+            for (AutoEncoder ae : aes) {
+                ae.startTraining();
+            }
+        }
+        isTraining = true;
     }
 
     @Override
-    public int getYoffset() {
-        return offsetY;
+    public void stopTraining() {
+        for (AutoEncoder[] aes : unit) {
+            for (AutoEncoder ae : aes) {
+                ae.stopTraining();
+            }
+        }
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        for (int x=0; x<outWidth; x++) {
+            for (int y=0; y<outHeight; y++) {
+                unit[x][y].clearGradient();
+            }
+        }
     }
 }

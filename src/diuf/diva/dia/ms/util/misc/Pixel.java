@@ -2,7 +2,7 @@ package diuf.diva.dia.ms.util.misc;
 
 /**
  * Support class for easier data structure modelling.
- * Currently used in trainClassifier, trainSCAE, ImageAnalysis.
+ * Currently used in trainClassifier, trainSCAE, ImageAnalysis and evaluateClassifier.
  * @author Michele Alberti
  */
 public class Pixel {

@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.ae.ccnn;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.ae.ffcnn.FFCNN;
 import diuf.diva.dia.ms.ml.layer.NeuralLayer;
 import diuf.diva.dia.ms.util.DataBlock;
@@ -40,7 +41,7 @@ import java.util.ArrayList;
  * layers on top. Fine-tuning is done through all FFCNNs.
  * @author Mathias Seuret
  */
-public class CCNN implements Serializable {
+public class CCNN implements Serializable, Trainable {
     
     protected ArrayList<FFCNN> base = new ArrayList();
     protected ArrayList<FFCNN> leaves = new ArrayList();
@@ -55,6 +56,7 @@ public class CCNN implements Serializable {
     protected NeuralLayer[] layer;
     protected NeuralLayer topLayer;
     protected float[] output;
+    protected boolean isTraining = false;
     
     /**
      * Constructs a Combined Convolutional Neural Network.
@@ -254,5 +256,38 @@ public class CCNN implements Serializable {
             }
         }
         return opt;
+    }
+
+    @Override
+    public void startTraining() {
+        for (FFCNN ffcnn : base) {
+            ffcnn.startTraining();
+        }
+        for (FFCNN ffcnn : leaves) {
+            ffcnn.startTraining();
+        }
+        for (CCNN ccnn : branches) {
+            ccnn.startTraining();
+        }
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        for (FFCNN ffcnn : base) {
+            ffcnn.stopTraining();
+        }
+        for (FFCNN ffcnn : leaves) {
+            ffcnn.stopTraining();
+        }
+        for (CCNN ccnn : branches) {
+            ccnn.stopTraining();
+        }
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 }

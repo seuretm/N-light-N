@@ -179,6 +179,15 @@ public class ReLU extends NeuralLayer {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    /**
+     * Modifies the activation cost.
+     * @param ac new activation cost
+     */
+    public void setActivationCost(float ac) {
+        activationCost = ac;
+    }
+    
     /**
      * Typical clone methods
      * @return a deep copy of the object

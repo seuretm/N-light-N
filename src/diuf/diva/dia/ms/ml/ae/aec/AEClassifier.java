@@ -27,6 +27,7 @@
 package diuf.diva.dia.ms.ml.ae.aec;
 
 import diuf.diva.dia.ms.ml.Classifier;
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 import diuf.diva.dia.ms.ml.mlnn.MLNN;
 import diuf.diva.dia.ms.util.DataBlock;
@@ -39,7 +40,7 @@ import java.io.*;
  * feed forward neural network can be specified at the object creation.
  * @author Mathias Seuret,Michele Alberti
  */
-public class AEClassifier implements Classifier, Serializable {
+public class AEClassifier implements Classifier, Serializable, Trainable {
     /**
      * Reference to the autoencoder.
      */
@@ -54,6 +55,11 @@ public class AEClassifier implements Classifier, Serializable {
      * The neural network on top of the classifier.
      */
     protected MLNN mlnn;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -178,7 +184,6 @@ public class AEClassifier implements Classifier, Serializable {
 
     /**
      * Computed the training error and applies the gradient descent for the NeuralLayers.
-     * @return the training error
      */
     public void learn() {
         mlnn.learn(mlnn.getLayersCount());
@@ -187,8 +192,6 @@ public class AEClassifier implements Classifier, Serializable {
     /**
      * Computed the training error and applies the gradient descent for the specified
      * amount of NeuralLayers from the top.
-     *
-     * @return the training error
      */
     public void learn(int nbLayers) {
         mlnn.learn(nbLayers);
@@ -306,6 +309,33 @@ public class AEClassifier implements Classifier, Serializable {
      */
     public AEClassifier load(String fileName) throws IOException, ClassNotFoundException {
         return (AEClassifier) Classifier.load(fileName);
+    }
+
+    @Override
+    public int getOutputClass() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void setExpectedClass(int classNum) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void startTraining() {
+        mlnn.startTraining();
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        mlnn.stopTraining();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 
 }

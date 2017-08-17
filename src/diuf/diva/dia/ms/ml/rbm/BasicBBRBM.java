@@ -25,6 +25,7 @@
  ******************************************************************************/
 
 package diuf.diva.dia.ms.ml.rbm;
+import diuf.diva.dia.ms.ml.Trainable;
 import java.io.Serializable;
 import static java.lang.Math.*;
 
@@ -35,7 +36,7 @@ import static java.lang.Math.*;
  * more features/optimizations.
  * @author Mathias Seuret
  */
-public class BasicBBRBM implements Serializable {
+public class BasicBBRBM implements Serializable, Trainable {
     /**
      * Number of visible units - of inputs.
      */
@@ -87,6 +88,11 @@ public class BasicBBRBM implements Serializable {
      * Learning eps
      */
     double eps = 1e-3;
+    
+    /**
+     * True if in training mode.
+     */
+    protected boolean isTraining = false;
     
     /**
      * Creates an RBM.
@@ -317,5 +323,20 @@ public class BasicBBRBM implements Serializable {
         }
         
         return sb.toString();
+    }
+
+    @Override
+    public void startTraining() {
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 }

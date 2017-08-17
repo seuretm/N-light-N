@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.ae;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.layer.Layer;
 import diuf.diva.dia.ms.util.DataBlock;
 
@@ -37,22 +38,9 @@ import java.util.Arrays;
  * abstract methods can be used as a Unit in a SCAE.
  * @author Michele Alberti, Mathias Seuret
  */
-public abstract class AutoEncoder implements Serializable {
+public abstract class AutoEncoder implements Serializable, Trainable {
 
     private static final long serialVersionUID = -3741751341348339527l;
-
-    /**
-     * Reference to the input - can be modified.
-     */
-    public DataBlock input;
-    /**
-     * X coordinate of the input area.
-     */
-    public int inputX;
-    /**
-     * Y coordinate of the input area.
-     */
-    public int inputY;
     /**
      * Width of the input area.
      */
@@ -65,6 +53,18 @@ public abstract class AutoEncoder implements Serializable {
      * Depth of the input area.
      */
     public final int inputDepth;
+    /**
+     * Reference to the input - can be modified.
+     */
+    public DataBlock input;
+    /**
+     * X coordinate of the input area.
+     */
+    public int inputX;
+    /**
+     * Y coordinate of the input area.
+     */
+    public int inputY;
     /**
      * Length of the input if represented in a 1D array
      */
@@ -90,10 +90,6 @@ public abstract class AutoEncoder implements Serializable {
      * Depth of the output, corresponds to the number of outputs.
      */
     public int outputDepth;
-    /**
-     * Learning speed of the unit.
-     */
-    public float learningSpeed = 1e-3f;
     /**
      * Encoding layer
      */
@@ -148,7 +144,7 @@ public abstract class AutoEncoder implements Serializable {
         assert (inputHeight > 0);
         assert (inputDepth > 0);
 
-        this.input = null;
+        this.input = new DataBlock(inputWidth, inputHeight, inputDepth);
         this.inputX = 0;
         this.inputY = 0;
         this.inputWidth = inputWidth;
@@ -243,7 +239,7 @@ public abstract class AutoEncoder implements Serializable {
         inputArray = new float[inputLength];
 
         // Computing the input as 1D array form
-        this.input.patchToArray(inputArray, this.inputX, this.inputY, this.inputWidth, this.inputHeight);
+        inputPatchToArray(inputArray);
 
         assert (inputArray.length == inputLength);
 
@@ -305,6 +301,28 @@ public abstract class AutoEncoder implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
+     * 2D array copy and conversion to float[][]
+     *
+     * @param b an array
+     * @return a copy of b, converted to float[][]
+     */
+    protected static float[][] copy(double[][] b) {
+        // Get dimensions
+        int n = b.length;
+        int m = b[0].length;
+
+        // Deep copy the matrix and cast it to float
+        float[][] a = new float[n][m];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                a[i][j] = (float) b[i][j];
+            }
+        }
+
+        return a;
+    }
+
+    /**
      * Encodes the input and stores the result in the output.
      */
     public void encode(){
@@ -315,7 +333,7 @@ public abstract class AutoEncoder implements Serializable {
          * the input for the current layer. For this reason we just paste again
          * the input patch on array.
          */
-        input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
+        inputPatchToArray(inputArray);
         encoder.compute();
     }
 
@@ -334,8 +352,8 @@ public abstract class AutoEncoder implements Serializable {
     public float train() {
 
         // Compute output
-        encoder.compute();
-        decoder.compute();
+        encode();
+        decode();
 
         // Set expected for all output
         for (int i = 0; i < inputLength; i++) {
@@ -346,7 +364,7 @@ public abstract class AutoEncoder implements Serializable {
         assert (decoder.getPreviousError() != null);
         float err = decoder.backPropagate();
         encoder.backPropagate();
-        
+
         encoder.clearError();
         decoder.clearError();
 
@@ -388,8 +406,11 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * Getter for the training done field
+     * This method will be replaced by startTraining() / stopTraining().
+     * These methods should be used, as this one will be removed in the future.
+     * @return true if the training has been indicated as done
      */
+    @Deprecated
     public boolean isTrainingDone() {
         return trainingDone;
     }
@@ -403,6 +424,10 @@ public abstract class AutoEncoder implements Serializable {
     public void activateOutput(int outputNumber, boolean activated) {
         output.setValue(outputNumber, outputX, outputY, (activated) ? 1 : 0);
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Input related
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Deletes the given features.
@@ -418,10 +443,6 @@ public abstract class AutoEncoder implements Serializable {
 
         outputDepth -= number.length;
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Input related
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * @return the input datablock
@@ -442,12 +463,12 @@ public abstract class AutoEncoder implements Serializable {
         if (db==null) {
             return;
         }
-        
-        assert (x >= 0);
-        assert (y >= 0);
 
-        assert (x + inputWidth <= db.getWidth());
-        assert (y + inputHeight <= db.getHeight());
+        // assert (x >= 0);
+        // assert (y >= 0);
+
+        //       assert (x + inputWidth <= db.getWidth());
+//        assert (y + inputHeight <= db.getHeight());
         assert (inputDepth == db.getDepth());
 
         // Set the input parameters
@@ -456,10 +477,19 @@ public abstract class AutoEncoder implements Serializable {
         inputY = y;
 
         // Computing the new input as 1D array form
-        input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
+        inputPatchToArray(inputArray);
 
         // Set input for encoder
-        encoder.setInputArray(inputArray);
+        // TODO why is next line commented?!?! -> update apparently the reference is updated with inputPatchToArray().
+        //encoder.setInputArray(inputArray);
+    }
+
+    /**
+     * Copies the input patch to an array. Can be overwritten.
+     * @param array the destination array
+     */
+    protected void inputPatchToArray(float[] array) {
+        input.patchToArray(array, inputX, inputY, inputWidth, inputHeight);
     }
 
     /**
@@ -490,16 +520,18 @@ public abstract class AutoEncoder implements Serializable {
         return inputWidth * inputHeight * inputDepth;
     }
 
-    /**
-     * @return the input array as 1D array form, NOT a copy
-     */
-    public float[] getInputArray(){
-        return inputArray;
-    }
-
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Output related
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Do not use, this will be removed in the future.
+     * @return the input array as 1D array form, NOT a copy
+     */
+    @Deprecated
+    public float[] getInputArray(){
+        return inputArray;
+    }
 
     /**
      * @return the output datablock
@@ -548,6 +580,10 @@ public abstract class AutoEncoder implements Serializable {
         return outputDepth;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Error related
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Returns the output array itself, not a copy. For performance reasons,
      * the same array is always used. If you need to store several outputs,
@@ -558,10 +594,6 @@ public abstract class AutoEncoder implements Serializable {
     public float[] getOutputArray() {
         return output.getValues(outputX,outputY);
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Error related
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Sets the previous error to use.
@@ -600,6 +632,10 @@ public abstract class AutoEncoder implements Serializable {
         this.decoder.setPreviousError(encoder.getError());
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Other getters&setters
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Clear the error of the encoder and decoder
      */
@@ -608,10 +644,6 @@ public abstract class AutoEncoder implements Serializable {
         encoder.clearPreviousError();
         decoder.clearError();
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Other getters&setters
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * @return the encoder
@@ -688,8 +720,12 @@ public abstract class AutoEncoder implements Serializable {
      * @return the current learning speed
      */
     public float getLearningSpeed() {
-        return learningSpeed;
+        return encoder.getLearningSpeed();
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Properties
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Sets the learning speed of all layers. Default value: 1e-3f.
@@ -697,14 +733,13 @@ public abstract class AutoEncoder implements Serializable {
      * @param s new learning speed
      */
     public void setLearningSpeed(float s) {
-        learningSpeed = s;
-        encoder.setLearningSpeed(s);
-        decoder.setLearningSpeed(s);
+        if (encoder!=null) {
+            encoder.setLearningSpeed(s);
+        }
+        if (decoder!=null) {
+            decoder.setLearningSpeed(s);
+        }
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Properties
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Child of this class should override this method if necessary
@@ -742,16 +777,16 @@ public abstract class AutoEncoder implements Serializable {
         return false;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Utility
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Child of this class should override this method if necessary
      *
      * @return a character indicating what kind of autoencoder this is
      */
-    public abstract char getTypeChar();
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Utility
-    ///////////////////////////////////////////////////////////////////////////////////////////////
+    public abstract String getTypeName();
 
     /**
      * This very important method is used when convolving the autoencoder in
@@ -777,31 +812,10 @@ public abstract class AutoEncoder implements Serializable {
     }
 
     /**
-     * 2D array copy and conversion to float[][]
-     *
-     * @param b an array
-     * @return a copy of b, converted to float[][]
-     */
-    protected static float[][] copy(double[][] b) {
-        // Get dimensions
-        int n = b.length;
-        int m = b[0].length;
-
-        // Deep copy the matrix and cast it to float
-        float[][] a = new float[n][m];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                a[i][j] = (float) b[i][j];
-            }
-        }
-
-        return a;
-    }
-
-    /**
      * Normalise matrix
      *
      * @param m matrix to normalise
+     * @return the matrix itself
      */
     public float[][] normalise(float[][] m) {
         double norm = 0;
@@ -834,7 +848,7 @@ public abstract class AutoEncoder implements Serializable {
             }
         }
         // Computing the new input as 1D array form
-        input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
+        inputPatchToArray(inputArray);
     }
 
     /**
@@ -842,7 +856,8 @@ public abstract class AutoEncoder implements Serializable {
      */
     @Override
     public String toString() {
-        return getTypeChar()+":"+getInputWidth()+"x"+getInputHeight()+"x"+getOutputDepth();
+        return getTypeName()+":"+getInputWidth()+"x"+getInputHeight()+"x"+getOutputDepth();
     }
 
+    public abstract void clearGradient();
 }

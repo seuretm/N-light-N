@@ -1,9 +1,9 @@
 /*****************************************************
   N-light-N
-  
+
   A Highly-Adaptable Java Library for Document Analysis with
   Convolutional Auto-Encoders and Related Architectures.
-  
+
   -------------------
   Author:
   2016 by Mathias Seuret <mathias.seuret@unifr.ch>
@@ -36,27 +36,27 @@ import java.io.*;
  * @author Mathias Seuret, Michele Alberti
  */
 public class DataBlock implements Serializable, Cloneable {
-    
+    static public final long serialVersionUID = 1507544894050698666l;
     /**
      * Width of the array.
      */
-    private final int width;
-    
+    protected final int width;
+
     /**
      * Height of the array.
      */
-    private final int height;
-    
+    protected final int height;
+
     /**
      * Depth of the array.
      */
-    private final int depth;
-    
+    protected final int depth;
+
     /**
      * The array.
      */
-    private final float[][][] value;
-    
+    protected final float[][][] value;
+
     /**
      * The weights.
      */
@@ -65,7 +65,7 @@ public class DataBlock implements Serializable, Cloneable {
     /**
      * Colorspace of the image
      */
-    private Image.Colorspace type = null;
+    protected Image.Colorspace type = null;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // PUBLIC Constructor
@@ -130,6 +130,7 @@ public class DataBlock implements Serializable, Cloneable {
      */
     public DataBlock(String fName) throws IOException {
         this(ImageIO.read(new File(fName)));
+        this.setColorspace(Image.Colorspace.RGB);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,31 +148,72 @@ public class DataBlock implements Serializable, Cloneable {
         weight = null;
     }
 
+    /**
+     * Creates a DataBlock from another DataBlock by cloning it.
+     *
+     * @param db datablock to clone
+     */
+    DataBlock(DataBlock db) {
+        this.width = db.width;
+        this.height = db.height;
+        this.depth = db.depth;
+        this.value = new float[width][height][depth];
+        this.weight = new float[width][height];
+        db.copyTo(this, 0, 0);
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Getter & Setters
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
+    /**
+     * Loads a datablock from a stream.
+     *
+     * @param ois object input stream
+     * @return the new datablock
+     * @throws IOException            if the stream cannot be read
+     * @throws ClassNotFoundException if the class of object in the stream does not match
+     */
+    public static DataBlock load(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        return (DataBlock) ois.readObject();
+    }
+
+    /**
+     * Loads a datablock from a file.
+     *
+     * @param fname file name
+     * @return the new datablock
+     * @throws IOException            if the file cannot be read
+     * @throws ClassNotFoundException if the class in the stream does not match
+     */
+    public static DataBlock load(String fname) throws IOException, ClassNotFoundException {
+        ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(fname)));
+        DataBlock db = load(ois);
+        ois.close();
+        return db;
+    }
+
     /**
      * @return the width of the block
      */
     public int getWidth() {
         return width;
     }
-    
+
     /**
      * @return the height of the block
      */
     public int getHeight() {
         return height;
     }
-    
+
     /**
      * @return the depth of the block
      */
     public int getDepth() {
         return depth;
     }
-    
+
     /**
      * Increase the value, and add 1 to the weight.
      * @param z coordinate - channel in images
@@ -228,16 +270,20 @@ public class DataBlock implements Serializable, Cloneable {
         value[x][y] = z;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Normalize
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     public Image.Colorspace getColorspace() {
         return type;
     }
-    
+
     public void setColorspace(Image.Colorspace cs) {
         type = cs;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Normalize
+    // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -290,10 +336,6 @@ public class DataBlock implements Serializable, Cloneable {
             }
         }
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Utility
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override
     public DataBlock clone() {
@@ -441,6 +483,31 @@ public class DataBlock implements Serializable, Cloneable {
         return returnValue;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Save & load
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Puts the values from a patch into an array, and returns A COPY of it after weighting it
+     * @param posX coordinate of the patch
+     * @param posY coordinate of the patch
+     * @param w width of the patch
+     * @param h height of the patch
+     * @return the patch into array form
+     */
+    public float[] weightedPatchToArray(int posX, int posY, int w, int h) {
+        float[] returnValue = new float[w * h * depth];
+        int i = 0;
+        for (int x = posX; x < posX + w; x++) {
+            for (int y = posY; y < posY + h; y++) {
+                for (int z = 0; z < depth; z++) {
+                    returnValue[i++] = getValue(z, x, y)/weight[x][y];
+                }
+            }
+        }
+        return returnValue;
+    }
+
     /**
      * Puts the values from an array to a patch.
      * @param arr array
@@ -451,9 +518,9 @@ public class DataBlock implements Serializable, Cloneable {
      */
     public void arrayToPatch(float[] arr, int posX, int posY, int width, int height) {
         assert (arr.length==width*height*getDepth());
-        
+
         int n = 0;
-        
+
         for (int x=posX; x<posX+width; x++) {
             for (int y=posY; y<posY+height; y++) {
                 for (int z=0; z<getDepth(); z++) {
@@ -463,10 +530,6 @@ public class DataBlock implements Serializable, Cloneable {
             }
         }
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Save & load
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Saves the datablock to a stream.
@@ -497,61 +560,43 @@ public class DataBlock implements Serializable, Cloneable {
         oos.close();
     }
 
-    /**
-     * Loads a datablock from a stream.
-     *
-     * @param ois object input stream
-     * @return the new datablock
-     * @throws IOException            if the stream cannot be read
-     * @throws ClassNotFoundException if the class of object in the stream does not match
-     */
-    public static DataBlock load(ObjectInputStream ois) throws IOException, ClassNotFoundException {
-        return (DataBlock) ois.readObject();
-    }
-
-    /**
-     * Loads a datablock from a file.
-     *
-     * @param fname file name
-     * @return the new datablock
-     * @throws IOException            if the file cannot be read
-     * @throws ClassNotFoundException if the class in the stream does not match
-     */
-    public static DataBlock load(String fname) throws IOException, ClassNotFoundException {
-        ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(fname)));
-        DataBlock db = load(ois);
-        ois.close();
-        return db;
-    }
-
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Image Datablock features
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /***
-     * @return an Image created from this datablock. The color space must be specified!
+     * Turns the DataBlock into an image, assuming the colorspace of the DataBlock
+     * has a colorspace (see setColorspace()).
+     * @return an Image created from this datablock.
      */
     public Image getImage() {
-        if (type != null) {
-            if (type.depth != getDepth()) {
-                throw new IllegalArgumentException(
-                        type + " has " + type.depth + " channels, this data field has " + getDepth()
-                );
+        if (type==null) {
+            switch (getDepth()) {
+                case 1:
+                    type = Image.Colorspace.GRAYSCALE;
+                    break;
+                case 3:
+                    type = Image.Colorspace.RGB;
+                    break;
+                default:
+                    throw new RuntimeException("The type for this datablock is not defined");
             }
-            Image img = new Image(getWidth(), getHeight(), type);
+        }
+        if (type.depth != getDepth()) {
+            throw new IllegalArgumentException(
+                    type + " has " + type.depth + " channels, this data field has " + getDepth()
+            );
+        }
+        Image img = new Image(getWidth(), getHeight(), type);
 
-            for (int x = 0; x < getWidth(); x++) {
-                for (int y = 0; y < getHeight(); y++) {
-                    for (int c = 0; c < getDepth(); c++) {
-                        img.set(c, x, y, getValue(c, x, y));
-                    }
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                for (int c = 0; c < getDepth(); c++) {
+                    img.set(c, x, y, getValue(c, x, y));
                 }
             }
-
-            return img;
-        } else {
-            throw new RuntimeException("The type for this datablock is not defined");
         }
 
+        return img;
     }
 }

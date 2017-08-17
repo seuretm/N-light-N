@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.ae.scae;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
 import diuf.diva.dia.ms.ml.ae.SupervisedAutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
@@ -36,7 +37,7 @@ import java.io.Serializable;
  * This corresponds to a convolution of an autoencoder on an input data block.
  * @author Mathias Seuret, Michele Alberti
  */
-public class Convolution  implements Serializable {
+public class Convolution  implements Serializable, Trainable {
 
     private static final long serialVersionUID = 5381615971840980344l;
 
@@ -76,6 +77,11 @@ public class Convolution  implements Serializable {
      * Y position of the convolution.
      */
     public int inputY;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -188,7 +194,7 @@ public class Convolution  implements Serializable {
 
     /**
      * Trains the autoencoder in a supervised fashion
-     *
+     * @param label expected label number
      * @return the training error
      */
     public float train(int label) {
@@ -208,27 +214,6 @@ public class Convolution  implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Getters & Setters
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    /**
-     * @return the width of the input patch.
-     */
-    public int getInputPatchWidth() {
-        return (outWidth-1)*getInputOffsetX() + base.getInputWidth();
-    }
-
-    /**
-     * @return the height of the input patch.
-     */
-    public int getInputPatchHeight() {
-        return (outHeight-1)*getInputOffsetY() + base.getInputHeight();
-    }
-
-    /**
-     * @return the depth of the input patch.
-     */
-    public int getInputPatchDepth() {
-        return base.getInputDepth();
-    }
-
     /**
      * @return the input data block
      */
@@ -281,6 +266,36 @@ public class Convolution  implements Serializable {
      */
     public int getInputOffsetY() {
         return inputOffsetY;
+    }
+
+    /**
+     * @return the width of the input patch.
+     */
+    public int getInputPatchWidth() {
+        return (outWidth-1)*getInputOffsetX() + base.getInputWidth();
+    }
+
+    /**
+     * @return the height of the input patch.
+     */
+    public int getInputPatchHeight() {
+        return (outHeight-1)*getInputOffsetY() + base.getInputHeight();
+    }
+
+    /**
+     * @return the depth of the input patch.
+     */
+    public int getInputPatchDepth() {
+        return base.getInputDepth();
+    }
+
+    /**
+     * Thew whole input patch is reconstructed and concatenated. The concatenation way
+     * is z,y,x. This means that in an array you have [p_0,0,red][p_0,0,green][p_0,0,blue][p_,0,1,red][p_0,1,green][p_0,1,blue],...
+     * @return the WHOLE input patch, considering the convolution of the base
+     */
+    public float[] getInputPatch() {
+        return input.patchToArray(inputX,inputY,getInputPatchWidth(),getInputPatchHeight());
     }
 
     /**
@@ -377,4 +392,23 @@ public class Convolution  implements Serializable {
     public String toString() {
         return base.toString()+"+"+inputOffsetX+"+"+inputOffsetY;
     }
+
+    @Override
+    public void startTraining() {
+        base.startTraining();
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        base.stopTraining();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+
 }

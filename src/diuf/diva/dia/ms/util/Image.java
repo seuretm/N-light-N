@@ -39,44 +39,22 @@ import static java.lang.Math.min;
  */
 public class Image {
     /**
-     * Different available colorspaces.
-     */
-    public enum Colorspace {
-        RGB(3), // Red, Green, Blue
-        YUV(3), // Luminance, U chrominance, V chrominance
-        HSV(3), // Hue, Saturation, Value
-        XYZ(3), // XYZ ?
-        CSSV(4), // Cos(hue), Sin(hue), Value
-        CMYK(4), // Cyan, Magenta, Yellow, blacK
-        CSS(3), // Cos(hue)*value, Sin(hue)*value, Saturation
-        GRAYSCALE(1);
-        
-        public final int depth;
-        Colorspace(int d) {
-            depth = d;
-        }
-    }
-    
-    /**
-     * Colorspace of the image
-     */
-    private Colorspace cs = Colorspace.RGB;
-    
-    /**
      * Array storing the values of the pixels. The first index corresponds
      * to the channel.
      */
     protected float[][][] pixel;
-    
     /**
      * Width of the image.
      */
     protected int width;
-    
     /**
      * Height of the image.
      */
     protected int height;
+    /**
+     * Colorspace of the image
+     */
+    private Colorspace cs = Colorspace.RGB;
     
     /**
      * Loads an image from a file.
@@ -85,7 +63,7 @@ public class Image {
      */
     public Image(String fileName) throws IOException {
         assert ((new File(fileName)).exists());
-        
+
         BufferedImage src = ImageIO.read(new File(fileName));
         width = src.getWidth();
         height = src.getHeight();
@@ -141,45 +119,105 @@ public class Image {
         this.cs = t;
         pixel = new float[t.depth][width][height];
     }
+
+    /**
+     * @param rgb color code
+     * @return the R component as a float in [-1;1]
+     */
+    public static float getR(int rgb) {
+        return ((rgb >> 16) & 0xFF) / 127.5f - 1;
+    }
+
+    /**
+     * @param rgb color code
+     * @return the G component as a float in [-1;1]
+     */
+    public static float getG(int rgb) {
+        return ((rgb >> 8) & 0xFF) / 127.5f - 1;
+    }
+
+    /**
+     * @param rgb color code
+     * @return the B component as a float in [-1;1]
+     */
+    public static float getB(int rgb) {
+        return (rgb & 0xFF) / 127.5f - 1;
+    }
+
+    /**
+     * Converts converts a float (between -1 and +1) to an int between 0 and 255.
+     *
+     * @param f the float
+     * @return an int
+     */
+    public static int toInt(float f) {
+        return (int) (255 * (f + 1) / 2);
+    }
+
+    /**
+     * Converts an int between 0 and 255 to a float between -1 and +1.
+     *
+     * @param i the integer
+     * @return a float
+     */
+    public static float toFloat(int i) {
+        return 2 * (i / 255.0f) - 1;
+    }
+
+    /**
+     * @param r red component
+     * @param g green component
+     * @param b blue component
+     * @return the RGB code corresponding to three floats encoding a RGB color
+     */
+    public static int getRGB(float r, float g, float b) {
+        return (toInt(r) << 16) | (toInt(g) << 8) | toInt(b);
+    }
     
     /**
      * Saves the image
      * @param fileName file name (jpg or png)
      * @throws IOException if the file cannot be written
      */
-    public void write(String fileName) throws IOException {
+    public void write(String fileName){
         Colorspace pType = cs;
 
         toRGB();
-        
-        BufferedImage targ = new BufferedImage(
+
+        BufferedImage bi = new BufferedImage(
                 width,
                 height,
                 BufferedImage.TYPE_INT_RGB
         );
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
-                targ.setRGB(
+                bi.setRGB(
                         x,
                         y,
                         getRGB(pixel[0][x][y],pixel[1][x][y],pixel[2][x][y])
                 );
             }
         }
-        
+
         String format = fileName.substring(
                 fileName.length()-3,
                 fileName.length()
         );
-        ImageIO.write(targ, format, new File(fileName));
-        
+
+        try {
+            ImageIO.write(bi, format, new File(fileName));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         convertTo(pType);
     }
     
     /**
      * Converts the colorspace to the given type.
-     * @param t target color space 
+     * @param t target color space
+     * @return the image itself
      */
     public Image convertTo(Colorspace t) {
         switch (t) {
@@ -515,7 +553,7 @@ public class Image {
     
     private void rgbToYuv() {
         assert (cs==Colorspace.RGB);
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float r = (pixel[0][x][y]+1)/2;
@@ -531,7 +569,7 @@ public class Image {
     
     private void yuvToRgb() {
         assert (cs==Colorspace.YUV);
-        
+
         for (int px=0; px<width; px++) {
             for (int py=0; py<height; py++) {
                 float y = (pixel[0][px][py]+1)/2;
@@ -547,9 +585,9 @@ public class Image {
     
     private void rgbToGrayscale() {
         assert (cs==Colorspace.RGB);
-        
+
         float[][][] p = new float[1][width][height];
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float r    = pixel[0][x][y];
@@ -564,9 +602,9 @@ public class Image {
     
     private void grayscaleToRgb() {
         assert (cs==Colorspace.GRAYSCALE);
-        
+
         float[][][] p = new float[3][width][height];
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float g    = pixel[0][x][y];
@@ -581,7 +619,7 @@ public class Image {
     
     private void rgbToXyz() {
         assert (cs==Colorspace.RGB);
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float r = (pixel[0][x][y]+1)/2;
@@ -597,7 +635,7 @@ public class Image {
     
     private void xyzToRgb() {
         assert (cs==Colorspace.XYZ);
-        
+
         for (int px=0; px<width; px++) {
             for (int py=0; py<height; py++) {
                 float x = (pixel[0][px][py]+1)/2*5.65084f;
@@ -613,7 +651,7 @@ public class Image {
     
     private void rgbToHsv() {
         assert (cs==Colorspace.RGB);
-        
+
         for (int px=0; px<width; px++) {
             for (int py=0; py<height; py++) {
                 float r = (pixel[0][px][py]+1)/2;
@@ -633,7 +671,7 @@ public class Image {
                 if (max<b) {
                     max = b;
                 }
-                
+
                 float h = 0;
                 if (max==min) {
                     h = 0;
@@ -649,7 +687,7 @@ public class Image {
                 }
                 float s = (max==0) ? 0 : ((max-min)/max);
                 float v = max;
-                
+
                 pixel[0][px][py] = 2*(h/360)-1;
                 pixel[1][px][py] = 2*s-1;
                 pixel[2][px][py] = 2*v-1;
@@ -660,7 +698,7 @@ public class Image {
     
     private void hsvToRgb() {
         assert (cs==Colorspace.HSV);
-        
+
         for (int px=0; px<width; px++) {
             for (int py=0; py<height; py++) {
                 float h = (pixel[0][px][py]+1)/2 * 360;
@@ -691,7 +729,7 @@ public class Image {
                     case 5:
                         pixel[0][px][py]=v; pixel[1][px][py]=p; pixel[2][px][py]=q;
                         break;
-                        
+
                 }
             }
         }
@@ -700,7 +738,7 @@ public class Image {
     
     private void hsvToCssv() {
         assert (cs==Colorspace.HSV);
-        
+
         float[][][] p = new float[4][width][height];
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
@@ -710,14 +748,14 @@ public class Image {
                 p[3][x][y] = pixel[2][x][y];
             }
         }
-        
+
         pixel = p;
         cs = Colorspace.CSSV;
     }
     
     private void cssvToHsv() {
         float[][][] p = new float[3][width][height];
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float c = pixel[0][x][y];
@@ -731,17 +769,17 @@ public class Image {
                 p[2][x][y] = pixel[3][x][y];
             }
         }
-        
+
         pixel = p;
         cs = Colorspace.HSV;
     }
     
     private void hsvToCss() {
         assert (cs==Colorspace.HSV);
-        
+
         for (int x=0; x<width; x++) {
-            for (int y=0; y<height; y++) {
-                
+            for (int y = 0; y<height; y++) {
+
                 float cos = (float)Math.cos(Math.PI*(1+pixel[0][x][y]));
                 float sin = (float)Math.sin(Math.PI*(1+pixel[0][x][y]));
                 float sat = pixel[1][x][y];
@@ -760,16 +798,16 @@ public class Image {
                 float cosv = (pixel[0][x][y]+1)/2;
                 float sinv = (pixel[1][x][y]+1)/2;
                 float sat = pixel[2][x][y];
-                
+
                 float v = (float)Math.sqrt(cosv*cosv+sinv*sinv);
-                
+
                 float a = (float)Math.atan2(sinv, cosv);
                 while (a<0) {
                     a+=2*Math.PI;
                 }
-                float h = (a/(float)Math.PI) - 1;
-                
-                
+                float h = (a/(float) Math.PI) - 1;
+
+
                 pixel[0][x][y] = h;
                 pixel[1][x][y] = sat;
                 pixel[2][x][y] = 2*v-1;
@@ -780,9 +818,9 @@ public class Image {
     
     private void rgbToCmyk() {
         assert (cs==Colorspace.RGB);
-        
+
         float[][][] p = new float[4][width][height];
-        
+
         for (int x=0; x<width; x++) {
             for (int y=0; y<height; y++) {
                 float cyan    = 1 - (pixel[0][x][y]+1)/2;
@@ -801,9 +839,9 @@ public class Image {
     
     private void cmykToRgb() {
         assert (cs==Colorspace.CMYK);
-        
+
         float[][][] p = new float[3][width][height];
-        
+
         for (int px=0; px<width; px++) {
             for (int py=0; py<height; py++) {
                 float c = (pixel[0][px][py]+1)/2;
@@ -841,58 +879,6 @@ public class Image {
      */
     public void set(int channel, int x, int y, float val) {
         pixel[channel][x][y] = val;
-    }
-    
-    /**
-     * @param rgb color code
-     * @return the R component as a float in [-1;1]
-     */
-    public static float getR(int rgb) {
-        return ((rgb>>16) & 0xFF) / 127.5f - 1;
-    }
-    
-    /**
-     * @param rgb color code
-     * @return the G component as a float in [-1;1]
-     */
-    public static float getG(int rgb) {
-        return ((rgb>>8) & 0xFF) / 127.5f - 1;
-    }
-    
-    /**
-     * @param rgb color code
-     * @return the B component as a float in [-1;1]
-     */
-    public static float getB(int rgb) {
-        return (rgb & 0xFF) / 127.5f - 1;
-    }
-    
-    /**
-     * Converts converts a float (between -1 and +1) to an int between 0 and 255.
-     * @param f the float
-     * @return an int
-     */
-    public static int toInt(float f) {
-        return (int)(255 * (f+1) / 2);
-    }
-    
-    /**
-     * Converts an int between 0 and 255 to a float between -1 and +1.
-     * @param i the integer
-     * @return a float
-     */
-    public static float toFloat(int i) {
-        return 2 * (i/255.0f) - 1;
-    }
-    
-    /**
-     * @param r red component
-     * @param g green component
-     * @param b blue component
-     * @return the RGB code corresponding to three floats encoding a RGB color
-     */
-    public static int getRGB(float r, float g, float b) {
-        return (toInt(r)<<16) | (toInt(g)<<8) | toInt(b);
     }
     
     /**
@@ -959,16 +945,36 @@ public class Image {
     public Image getScaled(int factor) {
         Image res = new Image(factor*getWidth(), factor*getHeight(), cs);
 
-        for (int x=0; x<res.getWidth(); x++) {
+        for (int x = 0; x<res.getWidth(); x++) {
             int px = x/factor;
-            for (int y=0; y<res.getHeight(); y++) {
+            for (int y = 0; y<res.getHeight(); y++) {
                 int py = y/factor;
-                for (int z=0; z<getDepth(); z++) {
+                for (int z = 0; z<getDepth(); z++) {
                     res.set(z, x, y, get(z, px, py));
                 }
             }
         }
 
         return res;
+    }
+
+    /**
+     * Different available colorspaces.
+     */
+    public enum Colorspace {
+        RGB(3), // Red, Green, Blue
+        YUV(3), // Luminance, U chrominance, V chrominance
+        HSV(3), // Hue, Saturation, Value
+        XYZ(3), // XYZ ?
+        CSSV(4), // Cos(hue), Sin(hue), Value
+        CMYK(4), // Cyan, Magenta, Yellow, blacK
+        CSS(3), // Cos(hue)*value, Sin(hue)*value, Saturation
+        GRAYSCALE(1);
+
+        public final int depth;
+
+        Colorspace(int d) {
+            depth = d;
+        }
     }
 }

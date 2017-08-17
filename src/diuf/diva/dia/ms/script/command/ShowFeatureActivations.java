@@ -55,40 +55,34 @@ public class ShowFeatureActivations extends AbstractCommand {
     public String execute(Element element) throws Exception {
         String doc = readElement(element, "document");
         String ref = readAttribute(element, "ref");
-        String res = readElement(element, "result");
+        String out = readElement(element, "result");
 
         SCAE scae = script.scae.get(ref);
         Image img = new Image(doc);
         img.convertTo(script.colorspace);
         DataBlock idb = new DataBlock(img);
         
-        BufferedImage bi = new BufferedImage(idb.getWidth(), idb.getHeight(), BufferedImage.TYPE_INT_RGB);
+        BufferedImage[] res = new BufferedImage[scae.getOutputDepth()];
+        for (int i=0; i<scae.getOutputDepth(); i++) {
+            res[i] = new BufferedImage(idb.getWidth(), idb.getHeight(), BufferedImage.TYPE_INT_RGB);
+        }
 
         int dx = scae.getInputPatchWidth() / 2;
         int dy = scae.getInputPatchHeight() / 2;
-        for (int i=0; i<scae.getOutputDepth(); i++) {
-            float min = Float.MAX_VALUE;
-            float max = Float.MIN_VALUE;
-            for (int x = 0; x < idb.getWidth() - scae.getInputPatchWidth(); x++) {
-                int mm = bi.getWidth() - scae.getInputPatchWidth();
-                System.out.println(i+"/"+scae.getOutputDepth()+": "+(float)x/mm*100+"%");
-                for (int y = 0; y < idb.getHeight() - scae.getInputPatchHeight(); y++) {
-                    scae.setInput(idb, x, y);
-                    float act = scae.forward()[i];
-                    float hue = (act+1)/2 * 0.4f; // Hue (note 0.4 = Green, see huge chart below)
-                    bi.setRGB(x+dx, y+dy, Color.getHSBColor(hue, 0.9f, 0.9f).getRGB());
-                    
-                    if (act<min) {
-                        min = act;
-                    }
-                    if (act>max) {
-                        max = act;
-                    }
+        for (int x = 0; x < idb.getWidth() - scae.getInputPatchWidth(); x++) {
+            int mm = res[0].getWidth() - scae.getInputPatchWidth();
+            System.out.println("Progress:"+((float)x/mm*100.0f)+"%");
+            for (int y = 0; y < idb.getHeight() - scae.getInputPatchHeight(); y++) {
+                scae.setInput(idb, x, y);
+                float[] act = scae.forward();
+                for (int n=0; n<scae.getOutputDepth(); n++) {
+                    float hue = (act[n]+1)/2 * 0.4f; // Hue (note 0.4 = Green)
+                    res[n].setRGB(x+dx, y+dy, Color.getHSBColor(hue, 0.9f, 0.9f).getRGB());
                 }
             }
-            ImageIO.write(bi, "png", new File(res+"-"+i+".png"));
-            //System.out.println("Reconstruction range: ["+min+", "+max+"]");
-            //System.out.println("Class: "+scae.getLayer(scae.getLayers().size()-1).getAE().getClass().getSimpleName());
+        }
+        for (int n=0; n<scae.getOutputDepth(); n++) {
+            ImageIO.write(res[n], "png", new File(out+"-"+n+".png"));
         }
         
         return "";

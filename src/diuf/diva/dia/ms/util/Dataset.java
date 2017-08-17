@@ -1,236 +1,150 @@
 /*****************************************************
-  N-light-N
-  
-  A Highly-Adaptable Java Library for Document Analysis with
-  Convolutional Auto-Encoders and Related Architectures.
-  
-  -------------------
-  Author:
-  2016 by Mathias Seuret <mathias.seuret@unifr.ch>
-      and Michele Alberti <michele.alberti@unifr.ch>
-  -------------------
+ N-light-N
 
-  This software is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation version 3.
+ A Highly-Adaptable Java Library for Document Analysis with
+ Convolutional Auto-Encoders and Related Architectures.
 
-  This software is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+ -------------------
+ Author:
+ 2016 by Mathias Seuret <mathias.seuret@unifr.ch>
+ and Michele Alberti <michele.alberti@unifr.ch>
+ -------------------
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this software; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ This software is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation version 3.
+
+ This software is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this software; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ******************************************************************************/
 
 package diuf.diva.dia.ms.util;
 
-import diuf.diva.dia.ms.script.XMLScript;
-import diuf.diva.dia.ms.util.Image.Colorspace;
-
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 
 /**
- * This is a set of datablocks which can be used for training
+ * This is representing a dataset
  * a SCAE.
- * @author Mathias Seuret
+ * @author Alberti Michele, Mathias Seuret
  */
-public class Dataset implements Collection<DataBlock> {
-    
+public final class Dataset<D extends DataBlock> implements Iterable<D> {
+
     /**
-     * List of datablocks.
+     * Explicits the type of the dataset
      */
-    protected ArrayList<DataBlock> data = new ArrayList<>();
-    
+    public final TYPE type;
     /**
-     * Colorspace of the dataset.
+     * List of DataBlocks.
      */
-    protected Image.Colorspace colorspace;
-    
-    /**
-     * Creates a dataset.
-     * @param colorspace colorspace to use
-     */
-    public Dataset(Image.Colorspace colorspace) {
-        this.colorspace = colorspace;
+    private ArrayList<D> data = new ArrayList<>();
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Constructor
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    public Dataset(TYPE type) {
+        this.type = type;
     }
-    
+
     /**
-     * Creates a dataset.
+     * Populates a dataset with datablock read from images
      * @param path containing the images
-     * @param colorspace colorspace to use
-     * @param sizeLimit maximum number of images to load
-     * @throws Exception if an image fails to load
-     */
-    public Dataset(String path, Image.Colorspace colorspace, int sizeLimit) throws Exception {
-        this(path, colorspace, sizeLimit, false);
-    }
-        
-    /**
-     * Creates a dataset.
-     * @param path containing the images
-     * @param colorspace colorspace to use
      * @param sizeLimit maximum number of images to load
      * @param buffered loads the DataBlocks as BiDataBlock
      * @throws Exception if an image fails to load
      */
-    public Dataset(String path, Image.Colorspace colorspace, int sizeLimit, boolean buffered) throws Exception {
-        File fold = new File(path);
-        if (!fold.exists()) {
+    public void loadDataBlocks(String path, int sizeLimit, boolean buffered) {
+        // Verify the path
+        File folder = new File(path);
+        if (!folder.exists()) {
             throw new Error("The path " + path + " does not exist.");
         }
-        if (!fold.isDirectory()) {
+        if (!folder.isDirectory()) {
             throw new Error(path + " is not a directory.");
         }
-        this.colorspace = colorspace;
+
+        // Load the images
         int size = 0;
-        String[] fList = fold.list();
+        String[] fList = folder.list();
         Arrays.sort(fList);
         for (String fName : fList) {
             if (fName.equals(".DS_Store")) {
                 continue;
             }
-            
-            /* PLEASE - do not add && Buffered here!!!!
-             * Although it being "technically correct" it would make several existing script to crash.
-             * Furthermore, this would make the possibility to create a buffered data set in
-             * LoadDataset.loadBufferedDataset() redundant. However, the two of them have different
-             * performance on memory level which calls for deeper investigation.
-             *
-             * CONCLUSION: this cannot be fixed with a && Buffered. Needs more time & attention and
-             * a bigger refactor.
-             */
-            // TODO investigate the above comment
-            if (colorspace == Image.Colorspace.RGB) {
-                BiDataBlock bid = new BiDataBlock(path + "/" + fName);
-                data.add(bid);
-            } else {
-                Image img = new Image(path + "/" + fName);
-                img.convertTo(colorspace);
-                DataBlock db = new DataBlock(img);
-                data.add(db);
+
+            try {
+                data.add(buffered ? (D) new BiDataBlock(path + "/" + fName) : (D) new DataBlock(new Image(path + "/" + fName)));
+            } catch (IOException e) {
+                e.printStackTrace();
             }
             if (sizeLimit!=0 && ++size>=sizeLimit) {
                 break;
             }
         }
-        // Calling the garbage collector at each iteration is painfully slow!!
-        // DO NOT do it!
         System.gc();
     }
-    
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Public
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Adds a datablock to the dataset.
-     * @param db datablock
-     * @return true
      */
-    @Override
-    public boolean add(DataBlock db) {
-        if (colorspace!=Colorspace.RGB && db instanceof BiDataBlock) {
-            throw new Error("BiDataBlocks can only be added to datasets storing RGB data");
-        }
-        return data.add(db);
-    }
-    
-    /**
-     * @return a valid random index
-     */
-    public int getRandomIndex() {
-        return (int)(data.size() * Math.random());
-    }
-    
-    /**
-     * Tosses the dataset.
-     */
-    public void randomPermutation() {
-        for (int i=0; i<data.size(); i++) {
-            int j = (int) (XMLScript.getRandom().nextDouble() * data.size());
-            DataBlock k = data.get(i);
-            data.set(i, data.get(j));
-            data.set(j, k);
-        }
+    public boolean add(D d) {
+        return data.add(d);
     }
 
     /**
-     * So that we can do a for-each.
-     * @return an iterator
+     * Tosses the dataset.
      */
-    @Override
-    public Iterator<DataBlock> iterator() {
-        randomPermutation();
+    public void shuffle() {
+        Collections.shuffle(data);
+    }
+
+    /**
+     * @return an iterator over the datablocks
+     */
+    public Iterator<D> iterator() {
         return data.iterator();
     }
-    
+
     /**
      * Return the selected element of the dataset
      * @param n index
      * @return the n-th datablock
      */
-    public DataBlock get(int n) {
+    public D get(int n) {
         return data.get(n);
     }
-    
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Getter & Setters
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Return the size of the data stored in the dataset
      * @return the number of datablocks
      */
-    @Override
     public int size() {
         return data.size();
     }
 
-    @Override
-    public boolean isEmpty() {
-        return data.isEmpty();
-    }
-
-    @Override
-    public boolean contains(Object o) {
-        return data.contains(o);
-    }
-
-    @Override
-    public Object[] toArray() {
-        return data.toArray();
-    }
-
-    @Override
-    public <T> T[] toArray(T[] a) {
-        return data.toArray(a);
-    }
-
-    @Override
-    public boolean remove(Object o) {
-        return data.remove(o);
-    }
-
-    @Override
-    public boolean containsAll(Collection<?> c) {
-        return data.containsAll(c);
-    }
-
-    @Override
-    public boolean addAll(Collection<? extends DataBlock> c) {
-        return data.addAll(c);
-    }
-
-    @Override
-    public boolean removeAll(Collection<?> c) {
-        return data.removeAll(c);
-    }
-
-    @Override
-    public boolean retainAll(Collection<?> c) {
-        return data.retainAll(c);
-    }
-
-    @Override
-    public void clear() {
-        data.clear();
+    /**
+     * Types of dataset
+     */
+    public enum TYPE {
+        NORMAL,
+        GT // It is expected to be generified with GroundTruthDataBlocks
     }
 }

@@ -26,8 +26,10 @@
 
 package diuf.diva.dia.ms.ml.layer;
 
+import diuf.diva.dia.ms.ml.Trainable;
 
-public interface Layer {
+
+public interface Layer extends Trainable {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Computing
@@ -46,6 +48,12 @@ public interface Layer {
      * @param expectedValue value that should ideally have been outputted
      */
     void setExpected(int outputNum, float expectedValue);
+    
+    default void setExpectedClass(int cNum) {
+        for (int o=0; o<getOutputSize(); o++) {
+            setExpected(o, cNum==o ? 1 : 0);
+        }
+    }
 
     /**
      * Backpropagate the unit's error.
@@ -77,6 +85,10 @@ public interface Layer {
      */
     void setInputArray(float[] inputArray);
 
+    /**
+     * Gets the learning speed if this feature is supported by the layer.
+     */
+    float getLearningSpeed();
     /**
      * Sets the learning speed if this feature is supported by the layer.
      * @param s new learning speed
@@ -191,4 +203,6 @@ public interface Layer {
      * @return a full copy of the Layer
      */
     Layer clone();
+
+    public void clearGradient();
 }

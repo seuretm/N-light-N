@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.mlnn;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.layer.NeuralLayer;
 
 import java.io.Serializable;
@@ -36,7 +37,7 @@ import java.util.Arrays;
  * Multi-layered neural network.
  * @author Mathias Seuret, Alberti Michele
  */
-public class MLNN implements Serializable {
+public class MLNN implements Serializable, Trainable {
 
     /**
      * Layers of the network
@@ -59,6 +60,11 @@ public class MLNN implements Serializable {
      * Number of outputs
      */
     private int nbOutputs;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -236,5 +242,26 @@ public class MLNN implements Serializable {
      */
     public NeuralLayer getLayer(int n) {
         return layers.get(n);
+    }
+
+    @Override
+    public void startTraining() {
+        for (NeuralLayer l : layers) {
+            l.startTraining();
+        }
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        for (NeuralLayer l : layers) {
+            l.stopTraining();
+        }
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 }

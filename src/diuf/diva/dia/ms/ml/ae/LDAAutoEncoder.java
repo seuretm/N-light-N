@@ -1,7 +1,9 @@
 package diuf.diva.dia.ms.ml.ae;
 
+import Jama.Matrix;
 import diuf.diva.dia.ms.ml.layer.Layer;
 import diuf.diva.dia.ms.util.LDA;
+import diuf.diva.dia.ms.util.Util;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,6 +29,11 @@ public class LDAAutoEncoder extends AutoEncoder implements SupervisedAutoEncoder
      * necessary to compute the LDA transformation
      */
     private final List<Integer> trainingDataLabels = new ArrayList<>();
+    
+    /**
+     * Set to true when training.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -109,7 +116,7 @@ public class LDAAutoEncoder extends AutoEncoder implements SupervisedAutoEncoder
     @Override
     public void encode() {
         if (!trainingDone) {
-            input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
+            inputPatchToArray(inputArray);
         } else {
             super.encode();
         }
@@ -170,27 +177,29 @@ public class LDAAutoEncoder extends AutoEncoder implements SupervisedAutoEncoder
             // Compute LDA
             System.out.print(ft.format(new Date()) + ": Computing LDA");
 
-            LDA lda = new LDA(data, labels);
+            LDA lda = new LDA();
+            lda.computeTransformationMatrix(data, labels);
 
             // Output size must be at most as big as the number of dimensions in LDA (trivial)
             assert (encoder.getOutputSize() <= lda.getNumFeatures());
 
             // Get the transformation matrix L
-            double[][] L = lda.getLinearDiscriminants(encoder.getOutputSize());
+            double[][] L = lda.getTransformationMatrix(encoder.getOutputSize());
 
             System.out.println("\n" + ft.format(new Date()) + ": LDA finished");
 
-            // Set encoder
-            encoder.setWeights(copy(L));
-            // Set decoder weights normalised, as from inverse of a matrix we get big numbers
-            decoder.setWeights(normalise(copy(lda.getInverseLinearDiscriminants(decoder.getInputSize()))));
+            // Set encoder Weights
+            float[][] W = Util.normalise(copy(L), (float) Math.sqrt(inputDepth * inputWidth * inputHeight));
+            // float[][] W = Util.normalise(copy(L),1);
+            // W = copy(L);
+            encoder.setWeights(W);
+
+            // Set decoder weights
+            decoder.setWeights(Util.normalise(copy(new Matrix(L).inverse().getArray()), (float) Math.sqrt(inputDepth * inputWidth * inputHeight)));
 
             // Set the flag to true
             trainingDone = true;
 
-            // Free the memory of the training data
-            trainingData.clear();
-            trainingDataLabels.clear();
         }
     }
 
@@ -264,6 +273,19 @@ public class LDAAutoEncoder extends AutoEncoder implements SupervisedAutoEncoder
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Utility
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Converts double[] to Matrix
+     */
+    private Matrix doubleToMatrix(double[] x) {
+        double[][] tmp = new double[1][x.length];
+        tmp[0] = x;
+        return new Matrix(tmp);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     // Properties
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -280,8 +302,31 @@ public class LDAAutoEncoder extends AutoEncoder implements SupervisedAutoEncoder
      * @return a character indicating what kind of autoencoder this is
      */
     @Override
-    public char getTypeChar() {
-        return 'p';
+    public String getTypeName() {
+        return "[LAE]";
+    }
+
+    @Override
+    public void startTraining() {
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        trainingData.clear();
+        trainingDataLabels.clear();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        encoder.clearGradient();
+        decoder.clearGradient();
     }
 
 }

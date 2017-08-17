@@ -26,8 +26,8 @@
 
 package diuf.diva.dia.ms.ml.layer;
 
-import diuf.diva.dia.ms.script.XMLScript;
 
+import diuf.diva.dia.ms.util.Random;
 import java.io.*;
 
 /**
@@ -41,6 +41,9 @@ import java.io.*;
  * @author Michele Alberti
  */
 public abstract class AbstractLayer implements Layer, Serializable {
+
+    private static final long serialVersionUID = 5612740784465488395l;
+
     /**
      * Number of inputs.
      */
@@ -95,6 +98,11 @@ public abstract class AbstractLayer implements Layer, Serializable {
      * Weight decay factor.
      */
     protected float decay = 0.0f;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -150,7 +158,7 @@ public abstract class AbstractLayer implements Layer, Serializable {
             for (int i = 0; i < inputSize; i++) {
                 for (int o = 0; o < outputSize; o++) {
                     //TODO: put the random numbers generator somewhere else than in XMLSCript
-                    this.weight[i][o] = (float) ((1 - 2 * XMLScript.getRandom().nextDouble()) / Math.sqrt(inputSize));
+                    this.weight[i][o] = (float) ((1 - 2 * Random.nextDouble()) / Math.sqrt(inputSize));
                 }
             }
         }
@@ -221,6 +229,13 @@ public abstract class AbstractLayer implements Layer, Serializable {
     @Override
     public void setInputArray(float[] in) {
         input = in;
+    }
+
+    /**
+     * @return the current learning speed
+     */
+    public float getLearningSpeed() {
+        return learningSpeed;
     }
 
     /**
@@ -485,6 +500,14 @@ public abstract class AbstractLayer implements Layer, Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    /**
+     * Changes the decay value.
+     * @param d new value
+     */
+    public void setDecay(float d) {
+        decay = d;
+    }
 
     protected void printBias() {
         System.out.print("Bias=[");
@@ -588,4 +611,27 @@ public abstract class AbstractLayer implements Layer, Serializable {
         wSum = new float[this.outputSize];
     }
 
+    @Override
+    public void startTraining() {
+        isTraining = true;
+    }
+    
+    @Override
+    public void stopTraining() {
+        isTraining = false;
+    }
+    
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+    
+    @Override
+    public void clearGradient() {
+        for (int i=0; i<inputSize; i++) {
+            for (int o=0; o<outputSize; o++) {
+                gradient[i][o] = 0;
+            }
+        }
+    }
 }

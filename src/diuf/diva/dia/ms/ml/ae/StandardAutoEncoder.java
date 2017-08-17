@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.ae;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.layer.Layer;
 /**
  * Autoencoder with standard book-like behaviour-
@@ -33,8 +34,10 @@ import diuf.diva.dia.ms.ml.layer.Layer;
  *
  * @author Michele Alberti
  */
-public class StandardAutoEncoder extends AutoEncoder {
+public class StandardAutoEncoder extends AutoEncoder implements Trainable {
 
+    protected boolean isTraining = false;
+    
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -183,7 +186,8 @@ public class StandardAutoEncoder extends AutoEncoder {
                 inputHeight,
                 inputDepth,
                 outputDepth,
-                parseClassName(encoder.getClass())
+                parseClassName(encoder.getClass()),
+                parseClassName(decoder.getClass())
         );
 
         // Set input
@@ -192,16 +196,16 @@ public class StandardAutoEncoder extends AutoEncoder {
         // Set output
         standardAutoEncoder.setOutput(output, 0, 0);
 
-        // Set previous error if not null
-        if (prevErr != null) {
-            standardAutoEncoder.setPrevError(prevErr);
-        }
-
         /* If error has not the same size of output, it means it was not used before.
          * Hence we do not set it. It is clear that one has to set the error manually after
          */
         if (output.getWidth() == error.getWidth() && output.getHeight() == error.getHeight() && output.getDepth()==error.getDepth()) {
             standardAutoEncoder.setError(error);
+        }
+
+        // Set previous error if not null
+        if (prevErr != null) {
+            standardAutoEncoder.setPrevError(prevErr);
         }
 
         // Set the encoder / decoder
@@ -219,8 +223,33 @@ public class StandardAutoEncoder extends AutoEncoder {
      * @return a character indicating what kind of autoencoder this is
      */
     @Override
-    public char getTypeChar() {
-        return 'n';
+    public String getTypeName() {
+        return "[SAE]";
+    }
+
+    @Override
+    public void startTraining() {
+        encoder.startTraining();
+        decoder.startTraining();
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        encoder.stopTraining();
+        decoder.stopTraining();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        encoder.clearGradient();
+        decoder.clearGradient();
     }
 
 }

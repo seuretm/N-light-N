@@ -70,13 +70,11 @@ public class EVDT {
 	}
 
 	public Matrix getVAboveThreshold(){
-		return evd.v.getMatrix(0, evd.v.getRowDimension() - 1,
-				0, getElementsNoAboveThreshold()-1);
+		return evd.v.getMatrix(0, evd.v.getRowDimension()-1, 0, getElementsNoAboveThreshold()-1);
 	}
 
 	public Matrix getVBelowThreshold(){
-		return evd.v.getMatrix(0, evd.v.getRowDimension()-1,
-				getElementsNoAboveThreshold(), evd.v.getColumnDimension()-1);
+		return evd.v.getMatrix(0, evd.v.getRowDimension()-1, getElementsNoAboveThreshold(), evd.v.getColumnDimension()-1);
 	}
 
 	private int getElementsNoAboveThreshold(){

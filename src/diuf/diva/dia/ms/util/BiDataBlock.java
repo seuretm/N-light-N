@@ -41,7 +41,7 @@ public class BiDataBlock extends DataBlock {
     /**
      * Buffered image
      */
-    private BufferedImage bi;
+    protected BufferedImage bi;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -110,14 +110,21 @@ public class BiDataBlock extends DataBlock {
         bi.setRGB(x, y, rgb);
     }
 
+    /**
+     * @return a DEEP COPY of the buffered image
+     */
+    public BufferedImage cloneBufferedImage() {
+        ColorModel cm = bi.getColorModel();
+        return new BufferedImage(cm, bi.copyData(bi.getRaster().createCompatibleWritableRaster()), cm.isAlphaPremultiplied(), null);
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Utility
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override
     public DataBlock clone() {
-        ColorModel cm = bi.getColorModel();
-        return new BiDataBlock(new BufferedImage(cm, bi.copyData(null), cm.isAlphaPremultiplied(), null));
+        return new BiDataBlock(cloneBufferedImage());
     }
 
     @Override

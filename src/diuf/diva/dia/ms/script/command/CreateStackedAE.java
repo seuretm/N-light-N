@@ -67,12 +67,9 @@ public class CreateStackedAE extends AbstractCommand {
         if (unitEl==null) {
             error("require unit tag");
         }
-        if (unitEl.getChildren().size()!=1) {
-            error("unit requires one child tag");
-        }
-        unitEl = unitEl.getChildren().get(0);
-        
-        String type = unitEl.getName();
+
+        String type = readElement(unitEl, "type");
+
         if (type==null) {
             error("unit requires a type");
         }
@@ -88,7 +85,7 @@ public class CreateStackedAE extends AbstractCommand {
 
         if (type.equalsIgnoreCase("STANDARD")) {
             // Parse the 'dimensions' text
-            int hidden = Integer.parseInt(readElement(unitEl, "hidden"));
+            int hidden = Integer.parseInt(readElement(unitEl, "dimensions"));
 
             // Parse the 'layer' text
             
@@ -113,11 +110,54 @@ public class CreateStackedAE extends AbstractCommand {
             );
         }
         
+        //TODO: add to the documentation
+        if (type.equalsIgnoreCase("SPECTRAL")) {
+            // Parse the 'dimensions' text
+            int hidden = Integer.parseInt(readElement(unitEl, "dimensions"));
+
+            // Parse the 'layer' text
+            
+            String encoderClassName = null;
+            String decoderClassName = null;
+            if (unitEl.getChild("layer")!=null) {
+                encoderClassName = readElement(unitEl, "layer");
+                decoderClassName = encoderClassName;
+            } else {
+                encoderClassName = readElement(unitEl, "encoder");
+                decoderClassName = readElement(unitEl, "decoder");
+            }
+            
+            String forward = readElement(unitEl, "forward");
+            String inverse = readElement(unitEl, "inverse");
+
+            // Create the unit with specified parameters
+            unit = new SpectralAutoEncoder(
+                    width,
+                    height,
+                    inputDepth,
+                    hidden,
+                    forward,
+                    inverse,
+                    encoderClassName,
+                    decoderClassName
+            );
+        }
+        
         if (type.equalsIgnoreCase("MAX-POOLER")) {
             unit = new MaxPooler(
                     width,
                     height,
                     inputDepth
+            );
+        }
+        
+        if (type.equalsIgnoreCase("POOLER")) {
+            String selector =readElement(unitEl, "selector");
+            unit = new Pooler(
+                    width,
+                    height,
+                    inputDepth,
+                    selector
             );
         }
         

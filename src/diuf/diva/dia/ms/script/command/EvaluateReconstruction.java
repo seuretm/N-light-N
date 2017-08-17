@@ -76,7 +76,7 @@ public class EvaluateReconstruction extends AbstractCommand {
 
         // Parse the dataset
         String dataset = readElement(element, "dataset");
-        Dataset ds = script.datasets.get(dataset);
+        Dataset<DataBlock> ds = script.datasets.get(dataset);
 
         // Offset is default input width, but can be specified if necessary
         offsetX = scae.getInputPatchWidth();
@@ -101,7 +101,7 @@ public class EvaluateReconstruction extends AbstractCommand {
             }
         }
 
-        script.print("Starting SCAE Reconstruction evaluation\n");
+        XMLScript.print("Starting SCAE Reconstruction evaluation -");
 
         // For all images in dataset
         for (DataBlock db : ds) {
@@ -116,7 +116,7 @@ public class EvaluateReconstruction extends AbstractCommand {
             imageIndex++;
         }
 
-        script.print("End SCAE Reconstruction evaluation\n");
+        XMLScript.print("End SCAE Reconstruction evaluation\n");
 
         return "";
     }
@@ -125,8 +125,10 @@ public class EvaluateReconstruction extends AbstractCommand {
      * Encodes and decodes the input, and returns the mean distance of
      * the reconstructed pixels. The patches are offseted by the given values.
      *
+     * @param scae to use for reconstructing the input
      * @param input an input area
      * @return the mean different distances between input and reconstructed input
+     * @throws java.io.IOException if the result file cannot be written
      */
     public float[] getReconstructionScore(SCAE scae, DataBlock input) throws IOException {
 
@@ -143,15 +145,25 @@ public class EvaluateReconstruction extends AbstractCommand {
         int rightBorder = (input.getWidth() - scae.getInputPatchWidth() > 0) ? input.getWidth() - scae.getInputPatchWidth() : 1;
         int bottomBorder = (input.getHeight() - scae.getInputPatchHeight() > 0) ? input.getHeight() - scae.getInputPatchHeight() : 1;
 
+        int loggingProgress = 0;
+
         for (int x = 0; x < rightBorder; x += offsetX) {
+
+            if ((x * 10) / rightBorder >= loggingProgress) {
+                System.out.print(" " + loggingProgress * 10 + "%");
+                loggingProgress = (x * 10) / rightBorder + 1;
+            }
+
             for (int y = 0; y < bottomBorder; y += offsetY) {
 
                 scae.setInput(input, x, y);
-                float[] exp = scae.base.getBase().getInputArray().clone();
+                //float[] exp = scae.getInputPatch().clone(); // This is the same as below, but I find it lew clear from the concept point of view
+                float[] exp = input.patchToArray(x,y,scae.getInputPatchWidth(),scae.getInputPatchHeight()).clone();
                 scae.forward();
                 scae.setInput(res, x, y);
                 scae.backward();
-                float[] val = scae.base.getBase().getDecoded().clone();
+                //float[] val = scae.getInputPatch().clone(); // This is the same as below, but I find it lew clear from the concept point of view
+                float[] val = res.weightedPatchToArray(x,y,scae.getInputPatchWidth(),scae.getInputPatchHeight()).clone();
 
                 // Compute the different distances
                 eucl.add(ReconstructionScore.euclideanDistance(val, exp));
@@ -161,6 +173,8 @@ public class EvaluateReconstruction extends AbstractCommand {
                 mahala.add(ReconstructionScore.mahalanobisDistance(val, exp));
             }
         }
+
+        System.out.println(" 100%");
 
         if (dst != null) {
             res.normalizeWeights();

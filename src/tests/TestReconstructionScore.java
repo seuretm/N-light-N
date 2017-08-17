@@ -98,4 +98,36 @@ public class TestReconstructionScore extends ReconstructionScore {
         assert (Math.abs(mahalanobisDistance(a, b) - 2.1948) < 0.0001);
 
     }
+
+    @Test
+    public void testScaledOffsetInvariant() {
+
+        final int N = 15;
+
+        float[] a = new float[N];
+        float[] b = new float[N];
+        float[] c = new float[N];
+        float[] d = new float[N];
+        float[] e = new float[N];
+
+        for (int i = 0; i < N; i++) {
+            a[i] = i;
+            b[i] = i+2;
+            c[i] = i*2;
+            d[i] = (i+2)*-2;
+            e[i] = (float) Math.pow(i,2);
+        }
+
+        assert (ReconstructionScore.scaleOffsetInvarDist(a,b) < 1e-5);
+        assert (ReconstructionScore.scaleOffsetInvarDist(a,c) < 1e-5);
+        assert (ReconstructionScore.scaleOffsetInvarDist(a,d) < 1e-5);
+        assert (ReconstructionScore.scaleOffsetInvarDist(a,e)-275.02228 < 1e-5);
+
+
+        System.out.println(ReconstructionScore.scaleOffsetInvarDist(a,e));
+        System.out.println(ReconstructionScore.scaleOffsetInvarDist(e,a));
+
+
+    }
+
 }

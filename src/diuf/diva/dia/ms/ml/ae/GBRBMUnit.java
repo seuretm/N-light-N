@@ -37,6 +37,7 @@ import java.io.Serializable;
 
 public class GBRBMUnit extends AutoEncoder implements Serializable {
     BasicGBRBM rbm;
+    protected boolean isTraining = false;
     
     /**
      * Constructs a real-value to binary-value RBM
@@ -101,8 +102,8 @@ public class GBRBMUnit extends AutoEncoder implements Serializable {
     }
     
     @Override
-    public char getTypeChar() {
-        return 'p';
+    public String getTypeName() {
+        return "[GRBM]";
     }
 
     @Override
@@ -113,5 +114,27 @@ public class GBRBMUnit extends AutoEncoder implements Serializable {
     @Override
     public AutoEncoder clone() {
         throw new UnsupportedOperationException("Clone has not yet been implemented here");
+    }
+
+    @Override
+    public void startTraining() {
+        rbm.startTraining();
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        rbm.stopTraining();
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 }

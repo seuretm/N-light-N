@@ -35,6 +35,8 @@ import java.io.IOException;
  * @author Mathias Seuret, Michele Alberti
  */
 public class NeuralLayer extends AbstractLayer {
+    //TODO: implement this in a better way
+    public static float INERTIA = 0.0f;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -117,10 +119,10 @@ public class NeuralLayer extends AbstractLayer {
         for (int o = 0; o < outputSize; o++) {
             for (int i = 0; i < inputSize; i++) {
                 weight[i][o] = (1.0f-decay)*weight[i][o] - learningSpeed * gradient[i][o];
-                gradient[i][o] = 0.0f;
+                gradient[i][o] *= INERTIA;
             }
             bias[o] = (1.0f-decay)*bias[o] - learningSpeed * biasGradient[o];
-            biasGradient[o] = 0.0f;
+            biasGradient[o] *= INERTIA;
         }
     }
 
@@ -143,6 +145,7 @@ public class NeuralLayer extends AbstractLayer {
                     gradient[i][o] += fact * input[i];
                 }
                 biasGradient[o] += fact;
+                err[o] = 0;
             }
         } else {
             for (int o = 0; o < outputSize; o++) {
@@ -154,6 +157,7 @@ public class NeuralLayer extends AbstractLayer {
                     prevErr[i] += fact * weight[i][o];
                 }
                 biasGradient[o] += fact;
+                err[o] = 0;
             }
         }
         

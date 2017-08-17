@@ -12,6 +12,7 @@ public interface SupervisedAutoEncoder {
     /**
      * Trains the auto-encoder and gives the relative label for the input examined
      *
+     * @param label desired class number
      * @return an estimation of the reconstruction error
      */
     float train(int label);

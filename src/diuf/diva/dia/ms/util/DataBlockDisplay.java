@@ -35,7 +35,7 @@ import java.awt.image.BufferedImage;
  * that it contains RGB or grayscale data.
  * @author Mathias Seuret
  */
-public abstract class DataBlockDisplay extends JFrame {
+public class DataBlockDisplay extends JFrame {
     /**
      * An image on which the datablock is displayed.
      */
@@ -52,21 +52,7 @@ public abstract class DataBlockDisplay extends JFrame {
      * @param title  window title
      */
     public DataBlockDisplay(DataBlock db, String title) {
-        this.db = db;
-        
-        int w = db.getWidth();
-        int h = db.getHeight();
-        int r = 1;
-        
-        while (r*w<512 && r*h<512) {
-            r++;
-        }
-        w*=r;
-        h*=r;
-        
-        this.setSize(w, h);
-        
-        bi = new BufferedImage(db.getWidth(), db.getHeight(), BufferedImage.TYPE_INT_RGB);
+        setDataBlock(db);
         
         
         JPanel pane = new JPanel() {
@@ -92,10 +78,31 @@ public abstract class DataBlockDisplay extends JFrame {
         setVisible(true);
     }
     
+    public void setDataBlock(DataBlock db) {
+        this.db = db;
+        
+        int w = db.getWidth();
+        int h = db.getHeight();
+        int r = 1;
+        
+        while (r*w<512 && r*h<512) {
+            r++;
+        }
+        w*=r;
+        h*=r;
+        
+        this.setSize(w, h);
+        
+        bi = new BufferedImage(db.getWidth(), db.getHeight(), BufferedImage.TYPE_INT_RGB);
+    }
+    
     /**
      * To updates the content of the datablock.
      */
-    public abstract void update();
+    public void update() {
+        updateImage(db);
+        repaint();
+    }
     
     /**
      * Updates the image.

@@ -26,18 +26,23 @@
 
 package diuf.diva.dia.ms.ml.ae.scae;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Stacked Convolution Denoising AutoEncoder. Take note that the convolution
  * offset is set when creating the convolution layer.
  * @author Mathias Seuret, Michele Alberti
  */
-public class SCAE implements Serializable {
+public class SCAE implements Serializable, Trainable {
+
+    static final long serialVersionUID = 7757975381730196907l;
 
     /**
      * The different layers of the autoencoder.
@@ -55,6 +60,11 @@ public class SCAE implements Serializable {
      * The array in which the features are concatenated.
      */
     public float[] featureVector;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -89,6 +99,23 @@ public class SCAE implements Serializable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Computing
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Loads a SCAE from a file.
+     *
+     * @param fileName file name
+     * @return an instance of SCAE
+     * @throws IOException            if the file cannot be read
+     * @throws ClassNotFoundException if the
+     */
+    public static SCAE load(String fileName) throws IOException, ClassNotFoundException {
+        SCAE scae;
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            scae = (SCAE) ois.readObject();
+        }
+        return scae;
+    }
+
     /**
      * Encodes the layers one after another.
      * @return the output of the top values, assuming that there's only one array
@@ -182,9 +209,11 @@ public class SCAE implements Serializable {
 
     /**
      * Train the supervised top layer - fails if this layer is not supervised
+     * @param label expected label number
+     * @return the output error
      */
     public float trainSupervised(int label) {
-        if (!top.getBase().isSupervised()) {
+        if (!isSupervised()) {
             throw new IllegalStateException(
                     "the top layer is not supervised, cannot use trainSupervised()"
             );
@@ -198,11 +227,22 @@ public class SCAE implements Serializable {
     }
 
     /**
+     * @return whether this SCAE is supervised or not
+     */
+    public boolean isSupervised() {
+        return top.getBase().isSupervised();
+    }
+
+    /**
      * Called at the end of training. Useful for PCA and LDA especially.
      */
     public void trainingDone() {
         top.getBase().trainingDone();
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Input related
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Adds a layer to the SCAE. It requires not only an autoencoder, but
@@ -244,9 +284,6 @@ public class SCAE implements Serializable {
 
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Input related
-    ///////////////////////////////////////////////////////////////////////////////////////////////
     /**
      * Centers the input of the SCAE at the given position of a data block.
      *
@@ -260,27 +297,6 @@ public class SCAE implements Serializable {
                 cx - getInputPatchWidth()/2,
                 cy - getInputPatchHeight()/2
         );
-    }
-    
-    /**
-     * @return the input patch depth
-     */
-    public int getInputPatchDepth() {
-        return base.getInputPatchDepth();
-    }
-
-    /**
-     * @return the input patch width
-     */
-    public int getInputPatchWidth() {
-        return base.getInputPatchWidth();
-    }
-
-    /**
-     * @return the input patch height
-     */
-    public int getInputPatchHeight() {
-        return base.getInputPatchHeight();
     }
 
     /**
@@ -317,9 +333,37 @@ public class SCAE implements Serializable {
         base.setInput(db, x, y);
     }
 
+    /**
+     * @return the input patch depth
+     */
+    public int getInputPatchDepth() {
+        return base.getInputPatchDepth();
+    }
+
+    /**
+     * @return the input patch width
+     */
+    public int getInputPatchWidth() {
+        return base.getInputPatchWidth();
+    }
+
+    /**
+     * @return the input patch height
+     */
+    public int getInputPatchHeight() {
+        return base.getInputPatchHeight();
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Output related
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @return the WHOLE input patch as an array.
+     */
+    public float[] getInputPatch() {
+        return base.getInputPatch();
+    }
 
     /**
      * @return the output depth of the autoencoder
@@ -327,6 +371,10 @@ public class SCAE implements Serializable {
     public int getOutputDepth() {
         return top.getOutput().getDepth();
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Getters & Setters
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     public int highestOutputIndex() {
         int opt = 1;
@@ -337,10 +385,6 @@ public class SCAE implements Serializable {
         }
         return opt;
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Getters & Setters
-    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /***
      * @return the base of the SCAE
@@ -397,6 +441,10 @@ public class SCAE implements Serializable {
         return featureVector;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Utility
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * @return the length of the vector returned by getFeatureVector()
      */
@@ -410,10 +458,7 @@ public class SCAE implements Serializable {
         }
         return featureVector.length;
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Utility
-    ///////////////////////////////////////////////////////////////////////////////////////////////
+    
     /**
      * This is used for studying the features. It extracts them and returns
      * them in the same format as the input.
@@ -476,6 +521,26 @@ public class SCAE implements Serializable {
     }
 
     /**
+     * For a given input, creates a map showing the intensity of the activation
+     * of the units af the different locations of each convolutional layer.
+     * @param input to process
+     * @param x top-left coordinate in the input
+     * @param y top-left coordinate in the input
+     * @return a list of datablocks, one for each layer of the SCAE
+     */
+    public List<DataBlock> getActivationMaps(DataBlock input, int x, int y) {
+        List<DataBlock> res = new LinkedList<>();
+        setInput(input, x, y);
+        forward();
+        for (Convolution convolution : stages) {
+            DataBlock db = convolution.getOutput().clone();
+            db.normalize();
+            res.add(db);
+        }
+        return res;
+    }
+
+    /**
      * Removes some features from the top-layer. Note that not all kinds of
      * layer support this feature.
      * @param number list of layers to remove, starting from 0
@@ -507,22 +572,6 @@ public class SCAE implements Serializable {
         oop.close();
     }
 
-    /**
-     * Loads a SCAE from a file.
-     * @param fileName file name
-     *
-     * @return an instance of SCAE
-     * @throws IOException if the file cannot be read
-     * @throws ClassNotFoundException if the
-     */
-    public static SCAE load(String fileName) throws IOException, ClassNotFoundException {
-        SCAE scae;
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
-            scae = (SCAE) ois.readObject();
-        }
-        return scae;
-    }
-
     @Override
     public String toString() {
         String res = "(";
@@ -533,6 +582,27 @@ public class SCAE implements Serializable {
             res = res + stages.get(i).toString();
         }
         return res+")";
+    }
+
+    @Override
+    public void startTraining() {
+        for (Convolution c : stages) {
+            c.startTraining();
+        }
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        for (Convolution c : stages) {
+            c.stopTraining();
+        }
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 
 }

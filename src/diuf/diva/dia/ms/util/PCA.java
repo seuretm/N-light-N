@@ -61,8 +61,7 @@ public final class PCA {
      * @param data data matrix used to compute the PCA transformation.
      * Rows of the matrix are the instances/samples, columns are dimensions.
      * Data will be in any case centered.
-     * @param evdCalc method of computing eigenvalue decomposition of data's
-     * covariance matrix
+     * @param evdCalc method of computing eigenvalue decomposition of data's covariance matrix
      * @param nbComponents dimensionality of the transformation matrix (dimensions of the sub subspace)
      */
     public PCA(Matrix data, CovarianceMatrixEVDCalculator evdCalc, int nbComponents) {
@@ -85,16 +84,15 @@ public final class PCA {
         this.threshold = 3 * evdT.getThreshold();
 
         // Get only the values of the matrices that correspond to standard deviations above the threshold
-        Matrix v = evdT.getVAboveThreshold();
+        Matrix a = evdT.getVAboveThreshold();
+        Matrix b = evdT.getVBelowThreshold();
 
-        /* Handle the case where dimension of 'v' is smaller because of components
-         * that are not above the threshold. This means that automatically the rank of
-         * W is reduced even tough the user wanted more dimensions */
-        if (v.getColumnDimension() < nbComponents) {
-            nbComponents = v.getColumnDimension();
-        }
+        // Join a and b horizontally [ a , b ]
+        Matrix x = new Matrix(a.getRowDimension(), a.getColumnDimension() + b.getColumnDimension());
+        x.setMatrix(0, a.getRowDimension()-1, 0, a.getColumnDimension() - 1, a);
+        x.setMatrix(0, a.getRowDimension()-1, a.getColumnDimension(), a.getColumnDimension() + b.getColumnDimension() - 1, b);
 
-        this.W = getSubMatrix(v, v.getRowDimension(), nbComponents);
+        this.W = getSubMatrix(x, x.getRowDimension(), nbComponents);
         this.zerosRotationTransformation = evdT.getVBelowThreshold();
 
     }

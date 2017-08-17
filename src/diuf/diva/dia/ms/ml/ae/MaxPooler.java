@@ -36,6 +36,11 @@ import diuf.diva.dia.ms.util.DataBlock;
 public class MaxPooler extends AutoEncoder {
 
     /**
+     * Set to true when the network is being trained.
+     */
+    protected boolean isTraining = false;
+    
+    /**
      * Constructs a max pooler. The number of outputs corresponds to
      * the input patch depth.
      * @param inputWidth input patch width
@@ -101,17 +106,24 @@ public class MaxPooler extends AutoEncoder {
         }
 
         for (int z=0; z<inputDepth; z++) {
+            int maxPx = 0;
+            int maxPy = 0;
             for (int ox=0; ox<inputWidth; ox++) {
                 for (int oy=0; oy<inputHeight; oy++) {
-                    prevErr.addValue(
-                            z,
-                            ox+inputX,
-                            oy+inputY,
-                            e[z]
-                    );
+                    if (input.getValue(z, ox+inputX, oy+inputY)>input.getValue(z, maxPx+inputX, maxPy+inputY)) {
+                        maxPx = ox;
+                        maxPy = oy;
+                    }
                 }
             }
+            prevErr.addValue(
+                    z,
+                    maxPx+inputX,
+                    maxPy+inputY,
+                    e[z]
+            );
         }
+        
         return sum / outputDepth;
     }
 
@@ -139,7 +151,7 @@ public class MaxPooler extends AutoEncoder {
         inputY = y;
 
         // Computing the new input as 1D array form
-        input.patchToArray(inputArray, inputX, inputY, inputWidth, inputHeight);
+        inputPatchToArray(inputArray);
     }
 
     /**
@@ -153,8 +165,6 @@ public class MaxPooler extends AutoEncoder {
     @Override
     public void setOutput(DataBlock db, int x, int y) {
         assert (db != null);
-        assert (encoder != null); // Forgot to init AutoEncoder properly?
-        assert (decoder != null); // Forgot to init AutoEncoder properly?
         assert (db.getDepth() == outputDepth);
         assert (x < db.getWidth());
         assert (y < db.getHeight());
@@ -205,13 +215,33 @@ public class MaxPooler extends AutoEncoder {
     }
 
     @Override
-    public char getTypeChar() {
-        return 'M';
+    public String getTypeName() {
+        return "[MAX]";
     }
 
     @Override
     public AutoEncoder clone() {
         return new MaxPooler(inputWidth, inputHeight, inputDepth);
+    }
+
+    @Override
+    public void startTraining() {
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
+    }
+
+    @Override
+    public void clearGradient() {
+        // Nothing to do
     }
 
 }

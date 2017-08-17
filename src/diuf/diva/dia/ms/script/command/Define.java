@@ -31,7 +31,7 @@ import org.jdom2.Element;
 
 /**
  * Defines a variable. Described in the doc.
- * @author Mathias Seuret
+ * @author Mathias Seuret, Michele Alberti
  */
 public class Define extends AbstractCommand {
 
@@ -49,10 +49,11 @@ public class Define extends AbstractCommand {
         if (key==null) {
             error("an id attribute is required");
         }
+
         String val = element.getText();
         if (val==null || val.length()==0) {
             if (!script.definitions.containsKey(key)) {
-                error(key+" was not defined");
+                error(key + " is empty. Therefore it should be defined by command line");
             }
             return "";
         }

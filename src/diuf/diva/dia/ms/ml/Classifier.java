@@ -42,7 +42,7 @@ import java.io.ObjectInputStream;
  *
  * @author Michele Alberti
  */
-public interface Classifier {
+public interface Classifier extends Trainable {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Setting input
@@ -77,7 +77,12 @@ public interface Classifier {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Getting the output/results
     ///////////////////////////////////////////////////////////////////////////////////////////////
-
+    
+    /**
+     * @return the index of the output having the highest activation
+     */
+    public int getOutputClass();
+    
     /**
      * This method returns either an int class number (corresponding to a
      * single-class classification result), or an int which bits indicate
@@ -103,7 +108,13 @@ public interface Classifier {
      * @param outputNumber typically a class number
      * @param expectedValue the values which should ideally have been outputted
      */
-    void setExpected(int expectedClass, float expectedValue);
+    void setExpected(int outputNumber, float expectedValue);
+    
+    /**
+     * Indicates which class is expected for the current sample.
+     * @param classNum index of the class
+     */
+    public void setExpectedClass(int classNum);
 
     /**
      * Applies the gradients stocked after one or several backPropagate() calls.
@@ -139,6 +150,7 @@ public interface Classifier {
     /**
      * Must return a string indicating the name of the classifier (AEClassifier,FFCNN, ...).
      * Useful to avoid using "instanceof"
+     * @return classifier name
      */
     String name();
 
@@ -148,6 +160,7 @@ public interface Classifier {
      * Possible values yet implemented:
      * <p>
      * -pixel
+     * @return string description of the type
      */
     String type();
 

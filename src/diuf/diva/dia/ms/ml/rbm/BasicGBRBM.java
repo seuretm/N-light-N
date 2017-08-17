@@ -26,6 +26,7 @@
 
 package diuf.diva.dia.ms.ml.rbm;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import java.io.Serializable;
 import static java.lang.Math.abs;
 import static java.lang.Math.exp;
@@ -40,7 +41,7 @@ import static java.lang.Math.sqrt;
  * al, 2011.
  * @author Mathias Seuret
  */
-public class BasicGBRBM implements Serializable {
+public class BasicGBRBM implements Serializable, Trainable {
     /**
      * Number of visible units.
      */
@@ -132,6 +133,11 @@ public class BasicGBRBM implements Serializable {
      * Learning speed
      */
     float eps = 1e-4f;
+    
+    /**
+     * Set to true during training phases.
+     */
+    protected boolean isTraining = false;
     
     /**
      * Constructs a GBRBM.
@@ -390,5 +396,20 @@ public class BasicGBRBM implements Serializable {
         }
         
         return sb.toString();
+    }
+
+    @Override
+    public void startTraining() {
+        isTraining = true;
+    }
+
+    @Override
+    public void stopTraining() {
+        isTraining = false;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return isTraining;
     }
 }

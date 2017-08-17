@@ -36,7 +36,7 @@ import org.jdom2.Element;
  * <p>
  * XML syntax:
  * <p>
- * <unload-dataset id="stringID"/>
+ * &lt;unload-dataset id="stringID"/&gt;
  *
  * @author Michele Alberti
  */

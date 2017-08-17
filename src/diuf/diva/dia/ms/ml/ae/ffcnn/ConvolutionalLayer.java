@@ -25,6 +25,7 @@
  ******************************************************************************/
 package diuf.diva.dia.ms.ml.ae.ffcnn;
 
+import diuf.diva.dia.ms.ml.Trainable;
 import diuf.diva.dia.ms.ml.ae.AutoEncoder;
 import diuf.diva.dia.ms.util.DataBlock;
 
@@ -33,7 +34,7 @@ import diuf.diva.dia.ms.util.DataBlock;
  *
  * @author ms
  */
-public interface ConvolutionalLayer {
+public interface ConvolutionalLayer extends Trainable {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Input
@@ -43,6 +44,8 @@ public interface ConvolutionalLayer {
     int getInputWidth();
 
     int getInputHeight();
+    
+    DataBlock getInput();
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Error
@@ -61,6 +64,8 @@ public interface ConvolutionalLayer {
     void setExpected(int z, float ex);
 
     void setExpected(int x, int y, int z, float ex);
+    
+    void setExpectedClass(int x, int y, int cNum);
 
     DataBlock getError();
 
@@ -88,6 +93,8 @@ public interface ConvolutionalLayer {
     float getLearningSpeed();
 
     void setLearningSpeed(float s);
+
+    public void clearGradient();
 
 
 

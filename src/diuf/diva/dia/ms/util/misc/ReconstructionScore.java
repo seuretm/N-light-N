@@ -37,6 +37,7 @@ public class ReconstructionScore {
             float[] A = new float[]{a[i], a[i + 1], a[i + 2]};
             float[] B = new float[]{b[i], b[i + 1], b[i + 2]};
             d += euclidean(A, B);
+            //System.out.println("d = " + d + "\t[" + A[0] + "," + A[1] + "," + A[2] + "]\t" +"[" + B[0] + "," + B[1] + "," + B[2] + "]");
         }
 
         return d / (a.length / 3);
@@ -44,9 +45,8 @@ public class ReconstructionScore {
 
     /**
      * Computes the Scaled Offest Invariant distance.
-     * This metric has been designed by Mathias Seuret and tries to match the shapes
-     * of the two samples minimizing their distances by modifying scale and offset only
-     * (not the shape or relative position of points).
+     * This metric tries to match the shapes of the two samples minimizing their
+     * distances by modifying scale and offset only (not the shape or relative position of points).
      *
      * @param a first variable
      * @param b second variable
@@ -54,29 +54,41 @@ public class ReconstructionScore {
      */
     public static float scaleOffsetInvarDist(float[] a, float[] b) {
         assert (a.length == b.length);
-        // Computing Omega
-        float omega = 0.0f;
-        for (int i = 0; i < a.length; i++) {
-            omega += b[i] - a[i];
+        final int N = a.length;
+
+        // Computing means
+        float muA = 0;
+        float muB = 0;
+        for (int i = 0; i < N; i++) {
+            muA += a[i];
+            muB += b[i];
         }
-        omega /= a.length;
+        muA /= N;
+        muB /= N;
+
+        //Centering the data
+        for (int i = 0; i < N; i++) {
+            a[i] -= muA;
+            b[i] -= muB;
+        }
 
         // Computing eta
         float top = 0;
         float bot = 0;
-        for (int i = 0; i < a.length; i++) {
-            top += (omega - b[i]) * a[i];
-            bot += a[i] * a[i];
+        for (int i = 0; i < N; i++) {
+            top += (b[i]*a[i]);
+            bot += (a[i]*a[i]);
         }
-        float eta = -top / bot;
+        float eta = top / bot;
 
         float sum = 0.0f;
-        for (int i = 0; i < a.length; i++) {
-            float d = eta * a[i] + omega - b[i];
+        for (int i = 0; i < N; i++) {
+            float d = eta * a[i] - b[i];
             sum += d * d;
         }
-        // The *100 is only to make it a bit bigger othersiw is always 0.01 or so
-        return sum * 100 / a.length;
+
+        return sum / N;
+        //  return (float) Math.sqrt(sum) / N;
     }
 
     /**
@@ -144,7 +156,7 @@ public class ReconstructionScore {
             d += deltaE94(A, B);
         }
 
-        return d;
+        return d/ (a.length / 3);
     }
 
     /**

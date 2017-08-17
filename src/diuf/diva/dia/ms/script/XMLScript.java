@@ -29,6 +29,7 @@ package diuf.diva.dia.ms.script;
 import diuf.diva.dia.ms.ml.Classifier;
 import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 import diuf.diva.dia.ms.script.command.*;
+import diuf.diva.dia.ms.util.DataBlock;
 import diuf.diva.dia.ms.util.Dataset;
 import diuf.diva.dia.ms.util.Image;
 import diuf.diva.dia.ms.util.NoisyDataset;
@@ -40,10 +41,7 @@ import org.jdom2.input.SAXBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Matcher;
 
 
@@ -52,22 +50,15 @@ import java.util.regex.Matcher;
  */
 public class XMLScript {
     /**
-     * Stores which color space is being used by
-     * the script. All commands MUST take this
-     * into account where needed.
-     */
-    public Image.Colorspace colorspace = Image.Colorspace.RGB;
-    
-    /**
-     * Root element of the XML script.
-     */
-    protected Element root;
-    
-    /**
      * Maps IDS to datasets.
      */
     public final HashMap<String, Dataset> datasets = new HashMap<>();
-    
+
+    /**
+     * Maps IDS to datasets who have their GT already provided. This is the case for CIFAR, MNIST, SVHN, ... where the GT is in the file name
+     */
+    public final HashMap<String, HashMap<Integer, ArrayList<DataBlock>>> fileNameBasedDatasets = new HashMap<>();
+
     /**
      * Maps IDs to noisy datasets.
      */
@@ -92,10 +83,17 @@ public class XMLScript {
      * Maps IDs to classifiers.
      */
     public final HashMap<String, Classifier> classifiers = new HashMap<>();
+    
     /**
-     * A random object,useful to seed the network globally
+     * Stores which color space is being used by
+     * the script. All commands MUST take this
+     * into account where needed.
      */
-    private static Random random;
+    public Image.Colorspace colorspace = Image.Colorspace.RGB;
+    /**
+     * Root element of the XML script.
+     */
+    protected Element root;
 
     /**
      * Constructs an XML script.
@@ -109,13 +107,22 @@ public class XMLScript {
         root = xml.getRootElement();
         readColorspace();
         prepareCommands();
+    }
 
-        // Select the appropriate rows for your launch. Please comment/De-coment the logging too
+    /**
+     * Pretty print of the execution duration
+     */
+    public static void printDuration(long start) {
+        long chrono = System.currentTimeMillis() - start;
+        long t = chrono / 1000;
 
-        //System.out.println("\n\n[WARNING] The network randomness is being seeded in XMLScript\n\n");
-       // random = new Random(123456789l);
-
-        random = new Random();
+        if (t < 60) {
+            System.out.println("Run time: " + t + " seconds");
+        } else if (t < 3600) {
+            System.out.printf("Run time: %d:%02d\n", (t / 60), (t % 60));
+        } else {
+            System.out.printf("Run time: %d:%02d:%02d\n", (t / 3600), ((t % 3600) / 60), (t % 60));
+        }
     }
     
     /**
@@ -128,7 +135,7 @@ public class XMLScript {
         definitions.clear();
         classifiers.clear();
     }
-    
+
     /**
      * Prepares instances of the different commands.
      */
@@ -151,7 +158,6 @@ public class XMLScript {
         //Classifier
         addCommand(new CreateClassifier(this));
         addCommand(new TrainClassifier(this));
-        addCommand(new PreTrainClassifier(this));
         addCommand(new EvaluateClassifier(this));
         // Utility
         addCommand(new DeleteFeatures(this));
@@ -160,9 +166,10 @@ public class XMLScript {
         addCommand(new Define(this));
         addCommand(new Print(this));
         addCommand(new StoreResult(this));
-        
+        addCommand(new SetRandom(this));
+
     }
-    
+
     /**
      * Modifies a string by replacing all defined words by their definitions.
      * @param in input string
@@ -180,7 +187,7 @@ public class XMLScript {
         }
         return in;
     }
-    
+
     /**
      * Adds a command to the script.
      * @param cmd new command
@@ -188,7 +195,7 @@ public class XMLScript {
     private void addCommand(AbstractCommand cmd) {
         commands.put(cmd.tagName(), cmd);
     }
-    
+
     /**
      * Loads the color space from the XML.
      */
@@ -206,7 +213,7 @@ public class XMLScript {
             );
         }
     }
-    
+
     /**
      * Runs the script.
      * @return the output of the last command
@@ -235,7 +242,7 @@ public class XMLScript {
      * Prints stuff with a timestamp.
      * @param s string to print
      */
-    public void println(String s) {
+    public static void println(String s) {
         SimpleDateFormat ft = new SimpleDateFormat ("HH:mm:ss.SSS");
         System.out.println(ft.format(new Date())+": "+s);
     }
@@ -245,19 +252,8 @@ public class XMLScript {
      *
      * @param s string to print
      */
-    public void print(String s) {
+    public static void print(String s) {
         SimpleDateFormat ft = new SimpleDateFormat("HH:mm:ss.SSS");
         System.out.print(ft.format(new Date()) + ": " + s);
     }
-
-    /**
-     * @return the random
-     */
-    public static Random getRandom() {
-        if (random==null) {
-            random = new Random();
-        }
-        return random;
-    }
-
 }
