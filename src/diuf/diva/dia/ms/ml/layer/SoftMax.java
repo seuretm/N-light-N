@@ -62,10 +62,11 @@ public class SoftMax implements Layer {
             throw new Error("SoftMax require null bias");
         }
         this.inputSize = inputSize;
-        exp    = new float[inputSize];
-        input  = new float[inputSize];
-        output = new float[inputSize];
-        error  = new float[inputSize];
+        exp      = new float[inputSize];
+        input    = new float[inputSize];
+        output   = new float[inputSize];
+        error    = new float[inputSize];
+        prevErr  = new float[inputSize];
     }
     
     @Override
