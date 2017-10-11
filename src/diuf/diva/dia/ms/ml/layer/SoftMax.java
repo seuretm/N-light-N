@@ -56,10 +56,10 @@ public class SoftMax implements Layer {
             throw new Error("SoftMax must have as many outputs as inputs");
         }
         if (weight!=null) {
-            throw new Error("SoftMax require null weights");
+            throw new Error("SoftMax requires null weights");
         }
         if (weight!=null) {
-            throw new Error("SoftMax require null bias");
+            throw new Error("SoftMax requires null bias");
         }
         this.inputSize = inputSize;
         exp      = new float[inputSize];
