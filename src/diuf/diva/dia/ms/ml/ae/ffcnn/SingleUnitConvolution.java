@@ -175,7 +175,20 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
         unit.setError(error);
     }
 
-
+    @Override
+    public void resize(int outWidth, int outHeight) {
+        // update variables
+        this.outWidth  = outWidth;
+        this.outHeight = outHeight;
+        inputWidth  = unit.getInputWidth()  + (outWidth-1)*offsetX;
+        inputHeight = unit.getInputHeight() + (outHeight-1)*offsetY;
+        
+        // prepare the error
+        output = new DataBlock(outWidth, outHeight, outDepth);
+        error  = new DataBlock(outWidth, outHeight, outDepth);
+        unit.setOutput(output, 0, 0);
+        unit.setError(error);
+    }
 
 
 
@@ -275,6 +288,7 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     /**
      * Clears the error in all units
      */
+    @Override
     public void clearError() {
         for (int x = 0; x < outWidth; x++) {
             for (int y = 0; y < outHeight; y++) {
@@ -469,7 +483,4 @@ public class SingleUnitConvolution implements Serializable, ConvolutionalLayer {
     public void clearGradient() {
         unit.clearGradient();
     }
-
-    
-
 }

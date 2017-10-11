@@ -51,12 +51,12 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
     /**
      * Width of the perception patch
      */
-    protected final int inputWidth;
+    protected int inputWidth;
 
     /**
      * Height of the perception patch
      */
-    protected final int inputHeight;
+    protected int inputHeight;
 
     /**
      * Depth of the perception patch
@@ -153,6 +153,36 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
             l.clearError();
         }
     }
+    
+    public FFCNN(final SCAE base, String layerClassName, int outWidth, int outHeight, final int outDepth) {
+        inputWidth = base.getInputPatchWidth();
+        inputHeight = base.getInputPatchHeight();
+        inputDepth = base.getInputPatchDepth();
+
+        // Add all basic layers from the base
+        for (Convolution c : base.getLayers()) {
+            layers.add(new SingleUnitConvolution(c));
+        }
+        
+        if (outWidth==0 || outHeight==0) {
+            outWidth = this.getInputGrowthWidth();
+            outHeight = this.getInputGrowthHeight();
+        }
+
+        // Add the additional layer required for classification
+        layers.add(new DeconvolutionalLayer(layers.get(layers.size()-1), layerClassName, outWidth, outHeight, outDepth));
+
+        // Adjust input/error datablocks references
+        layers.get(0).setInput(new DataBlock(inputWidth, inputHeight, inputDepth), 0, 0);
+        for (int i = 1; i < layers.size(); i++) {
+            layers.get(i).setInput(layers.get(i - 1).getOutput(), 0, 0);
+            layers.get(i).setPrevError(layers.get(i - 1).getError());
+        }
+        
+        for (ConvolutionalLayer l : layers) {
+            l.clearError();
+        }
+    }
 
     /**
      * Loads the network from a file
@@ -209,7 +239,6 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
      */
     @Override
     public void centerInput(DataBlock db, int cx, int cy) {
-        //System.out.println("Setting center @ "+cx+","+cy);
         ConvolutionalLayer l = layers.get(0);
         l.setInput(
                 db,
@@ -235,12 +264,22 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
     /**
      * @return the index of the output having the highest activation
      */
+    @Override
     public int getOutputClass() {
+        return getOutputClass(0, 0);
+    }
+    
+    /**
+     * @param x coordinate in the output
+     * @param y coordinate in the output
+     * @return the index of the channel having the highest activation
+     */
+    public int getOutputClass(int x, int y) {
         DataBlock db = layers.get(layers.size() - 1).getOutput();
         int res = 0;
-        float max = db.getValue(0, 0, 0);
+        float max = db.getValue(0, x, y);
         for (int i = 1; i < db.getDepth(); i++) {
-            float v = db.getValue(i, 0, 0);
+            float v = db.getValue(i, x, y);
             if (v > max) {
                 res = i;
                 max = v;
@@ -292,6 +331,29 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
     public int getOutputSize() {
         return layers.get(layers.size() - 1).getOutput().getDepth();
     }
+    
+    public void resizeOutput(int width, int height) {
+        if (!(topLayer() instanceof DeconvolutionalLayer)) {
+            throw new Error("Top layer not Deconvolutional, cannot resize it");
+        }
+        if (width==0 || height==0) {
+            width = this.getInputGrowthWidth();
+            height = this.getInputGrowthHeight();
+        }
+        
+        
+        topLayer().resize(width, height);
+        for (int l=layers.size()-2; l>=0; l--) {
+            layers.get(l).resize(layers.get(l+1).getInputWidth(), layers.get(l+1).getInputHeight());
+        }
+        for (int i = 1; i < layers.size(); i++) {
+            layers.get(i).setInput(layers.get(i - 1).getOutput(), 0, 0);
+            layers.get(i).setPrevError(layers.get(i - 1).getError());
+        }
+        inputWidth = layers.get(0).getInputWidth();
+        inputHeight = layers.get(0).getInputHeight();
+        layers.get(0).setInput(new DataBlock(inputWidth, inputHeight, inputDepth), 0, 0);
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Learning
@@ -322,6 +384,16 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
     @Override
     public void setExpectedClass(int classNum) {
         topLayer().setExpectedClass(0, 0, classNum);
+    }
+    
+    /**
+     * Indicates which class is expected for the current sample.
+     * @param x output coordinate
+     * @param y output coordinate
+     * @param classNum index of the class
+     */
+    public void setExpectedClass(int x, int y, int classNum) {
+        topLayer().setExpectedClass(x, y, classNum);
     }
 
     /**
@@ -415,6 +487,52 @@ public class FFCNN implements Classifier, Serializable, Cloneable, Trainable {
     @Override
     public int getInputHeight() {
         return inputHeight;
+    }
+    
+    /**
+     * Computes by how much the perception patch would grow horizontally if the
+     * top layer convolution is increased by 1.
+     * @return 
+     */
+    public int getInputGrowthWidth() {
+        int w = 1;
+        for (ConvolutionalLayer l : layers) {
+            w *= l.getXoffset();
+        }
+        return w;
+    }
+    
+    /**
+     * Computes by how much the perception patch would grow vertically if the
+     * top layer convolution is increased by 1.
+     * @return 
+     */
+    public int getInputGrowthHeight() {
+        int h = 1;
+        for (ConvolutionalLayer l : layers) {
+            h *= l.getYoffset();
+        }
+        return h;
+    }
+    
+    /**
+     * To be used in case of pixel labelling. Returns the width of the border,
+     * i.e., the distance between the leftmost input pixel column and the
+     * leftmost classified pixel column.
+     * @return 
+     */
+    public int getBorderWidth() {
+        return getInputWidth()/2 - layers.get(layers.size()-1).getOutput().getWidth()/2;
+    }
+    
+    /**
+     * To be used in case of pixel labelling. Returns the height of the border,
+     * i.e., the distance between the topmost input pixel column and the
+     * topmost classified pixel column.
+     * @return 
+     */
+    public int getBorderHeight() {
+        return getInputHeight()/2 - layers.get(layers.size()-1).getOutput().getHeight()/2;
     }
 
     /**

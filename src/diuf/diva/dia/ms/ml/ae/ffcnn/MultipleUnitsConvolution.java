@@ -422,4 +422,9 @@ public class MultipleUnitsConvolution implements ConvolutionalLayer, Serializabl
             }
         }
     }
+    
+    @Override
+    public void resize(int outWidth, int outHeight) {
+        throw new Error("Multiple unit convolutions cannot be resized as weights are not shared");
+    }
 }

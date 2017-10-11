@@ -434,8 +434,8 @@ public class DataBlock implements Serializable, Cloneable {
         assert (source.getWidth() + x < width);
         assert (source.getHeight() + y < height);
 
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
+        for (int i = 0; i < source.width; i++) {
+            for (int j = 0; j < source.height; j++) {
                 weightedPaste(source.getValues(i, j), 0, x + i, y + j);
             }
         }
