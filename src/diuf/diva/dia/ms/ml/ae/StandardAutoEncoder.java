@@ -162,7 +162,7 @@ public class StandardAutoEncoder extends AutoEncoder implements Trainable {
                     )
             );
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new Error(e);
         }
     }
 
