@@ -464,11 +464,11 @@ public abstract class AutoEncoder implements Serializable, Trainable {
             return;
         }
 
-        // assert (x >= 0);
-        // assert (y >= 0);
+        assert (x >= 0);
+        assert (y >= 0);
 
-        //       assert (x + inputWidth <= db.getWidth());
-//        assert (y + inputHeight <= db.getHeight());
+        assert (x + inputWidth <= db.getWidth());
+        assert (y + inputHeight <= db.getHeight());
         assert (inputDepth == db.getDepth());
 
         // Set the input parameters
@@ -619,8 +619,8 @@ public abstract class AutoEncoder implements Serializable, Trainable {
      */
     public void setError(DataBlock db) {
         assert (db != null);
-        assert (output.getWidth() == db.getWidth());
-        assert (output.getHeight() == db.getHeight());
+        //assert (output.getWidth() == db.getWidth());
+        //assert (output.getHeight() == db.getHeight());
         assert (outputDepth == db.getDepth());
 
         error = db;

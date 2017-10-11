@@ -49,6 +49,11 @@ public interface Layer extends Trainable {
      */
     void setExpected(int outputNum, float expectedValue);
     
+    /**
+     * Sets the expect class output. This default behavior requests the
+     * corresponding output to be 1 and the others to be 0.
+     * @param cNum class number
+     */
     default void setExpectedClass(int cNum) {
         for (int o=0; o<getOutputSize(); o++) {
             setExpected(o, cNum==o ? 1 : 0);
