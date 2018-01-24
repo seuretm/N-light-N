@@ -27,7 +27,13 @@
 package diuf.diva.dia.ms.ml.mlnn;
 
 import diuf.diva.dia.ms.ml.Trainable;
+import diuf.diva.dia.ms.ml.ae.scae.SCAE;
 import diuf.diva.dia.ms.ml.layer.NeuralLayer;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -111,6 +117,32 @@ public class MLNN implements Serializable, Trainable {
         }
 
         input = base.getInputArray();
+    }
+    
+    /**
+     * Saves the MLNN to a file
+     * @param fileName
+     * @throws IOException 
+     */
+    public void save(String fileName) throws IOException {
+        ObjectOutputStream oop = new ObjectOutputStream(new FileOutputStream(fileName));
+        oop.writeObject(this);
+        oop.close();
+    }
+    
+    /**
+     * Loads an MLNN from a file and returns it.
+     * @param fileName
+     * @return the loaded MLNN
+     * @throws IOException if the file could not be read
+     * @throws ClassNotFoundException if the file does not contain an N-light-N object
+     */
+    public static MLNN load(String fileName) throws IOException, ClassNotFoundException {
+        MLNN mlnn;
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            mlnn = (MLNN) ois.readObject();
+        }
+        return mlnn;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
